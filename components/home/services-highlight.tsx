@@ -2,10 +2,10 @@ import Link from 'next/link'
 import {
   Car,
   Utensils,
-  Spa,
+  Sparkles,
   Plane,
   ShoppingBag,
-  CleaningServices,
+  Wand2,
 } from 'lucide-react'
 
 const services = [
@@ -20,7 +20,7 @@ const services = [
     description: 'World-class culinary experiences tailored to your taste',
   },
   {
-    icon: Spa,
+    icon: Sparkles,
     title: 'Spa & Wellness',
     description: 'Rejuvenate with our premium spa and wellness treatments',
   },
@@ -35,7 +35,7 @@ const services = [
     description: 'Exclusive shopping experiences in luxury destinations',
   },
   {
-    icon: CleaningServices,
+    icon: Wand2,
     title: 'Housekeeping',
     description: 'Premium cleaning and maintenance services available',
   },
