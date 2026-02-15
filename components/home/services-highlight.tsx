@@ -1,3 +1,5 @@
+'use client'
+
 import Link from 'next/link'
 import {
   Car,
@@ -45,7 +47,6 @@ export function ServicesHighlight() {
   return (
     <section className="py-20 md:py-28 bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="text-center mb-16">
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-4">
             Premium Services
@@ -55,7 +56,6 @@ export function ServicesHighlight() {
           </p>
         </div>
 
-        {/* Services Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {services.map((service, index) => {
             const Icon = service.icon
@@ -64,12 +64,10 @@ export function ServicesHighlight() {
                 key={index}
                 className="card-luxury flex flex-col items-start group hover:bg-card/50"
               >
-                {/* Icon */}
                 <div className="w-14 h-14 bg-accent/10 rounded-lg flex items-center justify-center mb-6 group-hover:bg-accent/20 transition-colors">
                   <Icon className="w-7 h-7 text-accent" />
                 </div>
 
-                {/* Content */}
                 <h3 className="text-lg font-serif font-bold text-foreground mb-2">
                   {service.title}
                 </h3>
@@ -81,7 +79,6 @@ export function ServicesHighlight() {
           })}
         </div>
 
-        {/* CTA */}
         <div className="text-center mt-16">
           <Link href="/services">
             <button className="btn-luxury-accent text-lg">
