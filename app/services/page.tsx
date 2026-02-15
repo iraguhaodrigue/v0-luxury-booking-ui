@@ -4,10 +4,10 @@ import { ServiceCard } from '@/components/services/service-card'
 import {
   Car,
   Utensils,
-  Spa,
+  Sparkles,
   Plane,
   ShoppingBag,
-  CleaningServices,
+  Wand2,
 } from 'lucide-react'
 
 const services = [
@@ -27,7 +27,7 @@ const services = [
     image: 'https://images.unsplash.com/photo-1566909114-f6e7ad7d3136?w=600&q=80',
   },
   {
-    icon: CleaningServices,
+    icon: Wand2,
     title: 'Housekeeping',
     description:
       'Experience immaculate cleanliness with our professional housekeeping team. Daily cleaning, laundry, and maintenance.',
@@ -57,7 +57,7 @@ const services = [
     image: 'https://images.unsplash.com/photo-1495251119519-d06b96b57f48?w=600&q=80',
   },
   {
-    icon: Spa,
+    icon: Sparkles,
     title: 'Spa & Wellness',
     description:
       'Rejuvenate your mind and body with our premium spa and wellness treatments. In-villa services available.',
