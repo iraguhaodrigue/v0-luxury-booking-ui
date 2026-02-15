@@ -4,10 +4,10 @@ import { useState } from 'react'
 import {
   Car,
   Utensils,
-  Spa,
+  Sparkles,
   Plane,
   ShoppingBag,
-  CleaningServices,
+  Wand2,
   Check,
 } from 'lucide-react'
 
@@ -22,7 +22,7 @@ const services = [
   },
   {
     id: 'housekeeper',
-    icon: CleaningServices,
+    icon: Wand2,
     title: 'Housekeeping',
     description: 'Daily cleaning & maintenance',
     price: 100,
@@ -38,7 +38,7 @@ const services = [
   },
   {
     id: 'spa',
-    icon: Spa,
+    icon: Sparkles,
     title: 'Spa & Wellness',
     description: 'Premium spa treatments',
     price: 200,
