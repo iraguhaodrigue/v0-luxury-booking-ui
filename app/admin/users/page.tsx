@@ -1,3 +1,5 @@
+'use client'
+
 import { Navbar } from '@/components/layouts/navbar'
 import { AdminSidebar } from '@/components/layouts/admin-sidebar'
 import { Footer } from '@/components/layouts/footer'
@@ -82,11 +84,6 @@ const columns = [
   },
 ]
 
-export const metadata = {
-  title: 'Manage Users | Admin',
-  description: 'Manage all users',
-}
-
 export default function UsersPage() {
   const handleEdit = (user: any) => {
     console.log('Edit user:', user)
@@ -109,7 +106,6 @@ export default function UsersPage() {
 
         <div className="flex-1 overflow-y-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header */}
             <div className="mb-8">
               <h1 className="text-4xl font-serif font-bold text-foreground mb-2">
                 Manage Users
@@ -119,7 +115,6 @@ export default function UsersPage() {
               </p>
             </div>
 
-            {/* Filters */}
             <div className="flex gap-4 mb-8 flex-wrap">
               <input
                 type="text"
@@ -133,7 +128,6 @@ export default function UsersPage() {
               </select>
             </div>
 
-            {/* Table */}
             <DataTable
               columns={columns}
               data={users}
