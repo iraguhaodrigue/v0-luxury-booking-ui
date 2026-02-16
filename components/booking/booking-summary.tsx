@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import { formatPrice } from '@/lib/utils/currency'
 import { MapPin, Calendar, Users, DollarSign, Home } from 'lucide-react'
 
 interface BookingSummaryProps {
@@ -50,7 +51,7 @@ export function BookingSummary({
           </h3>
           <div className="flex items-center space-x-1 text-muted-foreground text-sm">
             <MapPin className="w-4 h-4" />
-            <span>{property.location}</span>
+            <span>{property.location}, Rwanda</span>
           </div>
         </div>
       )}
@@ -118,7 +119,7 @@ export function BookingSummary({
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Property</span>
             <span className="text-foreground font-semibold">
-              ${propertyTotal}
+              {formatPrice(propertyTotal, false)}
             </span>
           </div>
         )}
@@ -127,7 +128,7 @@ export function BookingSummary({
           <div className="flex justify-between text-sm">
             <span className="text-muted-foreground">Services</span>
             <span className="text-foreground font-semibold">
-              ${servicesTotal}
+              {formatPrice(servicesTotal, false)}
             </span>
           </div>
         )}
@@ -137,12 +138,14 @@ export function BookingSummary({
             <div className="border-t border-border pt-3">
               <div className="flex justify-between text-sm mb-2">
                 <span className="text-muted-foreground">Subtotal</span>
-                <span className="text-foreground font-semibold">${total}</span>
+                <span className="text-foreground font-semibold">
+                  {formatPrice(total, false)}
+                </span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Taxes & Fees</span>
+                <span className="text-muted-foreground">Service Fee (10%)</span>
                 <span className="text-foreground font-semibold">
-                  ${taxesAndFees}
+                  {formatPrice(taxesAndFees, false)}
                 </span>
               </div>
             </div>
@@ -152,11 +155,11 @@ export function BookingSummary({
               <div className="flex justify-between items-center">
                 <span className="font-semibold text-foreground">Total</span>
                 <div className="text-right">
-                  <div className="text-3xl font-bold text-accent">
-                    ${grandTotal}
+                  <div className="text-2xl font-bold text-accent">
+                    {formatPrice(grandTotal, false)}
                   </div>
                   <div className="text-xs text-muted-foreground">
-                    USD per stay
+                    Rwandan Francs
                   </div>
                 </div>
               </div>
@@ -180,7 +183,7 @@ export function BookingSummary({
 
       {/* Info */}
       <p className="text-xs text-muted-foreground text-center">
-        Free cancellation before 48 hours of check-in
+        Free cancellation up to 48 hours before check-in
       </p>
     </div>
   )

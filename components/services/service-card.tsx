@@ -1,18 +1,19 @@
-import { LucideIcon } from 'lucide-react'
+import { ReactNode } from 'react'
 import Link from 'next/link'
+import { formatPrice } from '@/lib/utils/currency'
 
 interface ServiceCardProps {
-  icon: LucideIcon
+  icon?: ReactNode
   title: string
   description: string
-  details: string[]
+  details?: string[]
   price: number
   duration: string
   image?: string
 }
 
 export function ServiceCard({
-  icon: Icon,
+  icon,
   title,
   description,
   details,
@@ -31,11 +32,11 @@ export function ServiceCard({
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
         </div>
-      ) : (
+      ) : icon ? (
         <div className="w-14 h-14 bg-accent/10 rounded-lg flex items-center justify-center mb-4 group-hover:bg-accent/20 transition-colors">
-          <Icon className="w-7 h-7 text-accent" />
+          {icon}
         </div>
-      )}
+      ) : null}
 
       {/* Content */}
       <h3 className="text-xl font-serif font-bold text-foreground mb-2">
@@ -46,21 +47,25 @@ export function ServiceCard({
       </p>
 
       {/* Details */}
-      <ul className="space-y-2 mb-6 flex-grow">
-        {details.map((detail, index) => (
-          <li key={index} className="flex items-start space-x-2 text-sm text-muted-foreground">
-            <span className="text-accent font-bold mt-0.5">•</span>
-            <span>{detail}</span>
-          </li>
-        ))}
-      </ul>
+      {details && details.length > 0 && (
+        <ul className="space-y-2 mb-6 flex-grow">
+          {details.map((detail, index) => (
+            <li key={index} className="flex items-start space-x-2 text-sm text-muted-foreground">
+              <span className="text-accent font-bold mt-0.5">•</span>
+              <span>{detail}</span>
+            </li>
+          ))}
+        </ul>
+      )}
 
       {/* Price & CTA */}
       <div className="border-t border-border pt-4">
         <div className="flex items-end justify-between mb-4">
           <div>
             <p className="text-sm text-muted-foreground">Starting at</p>
-            <p className="text-2xl font-bold text-accent">${price}</p>
+            <p className="text-2xl font-bold text-accent">
+              {formatPrice(price, false)}
+            </p>
             <p className="text-xs text-muted-foreground">{duration}</p>
           </div>
         </div>

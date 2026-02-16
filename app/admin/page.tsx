@@ -1,34 +1,51 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layouts/navbar'
 import { AdminSidebar } from '@/components/layouts/admin-sidebar'
 import { Footer } from '@/components/layouts/footer'
-import { Building2, Calendar, Users, DollarSign, TrendingUp, AlertCircle } from 'lucide-react'
+import { formatPrice } from '@/lib/utils/currency'
+import { Building2, Calendar, Users, DollarSign, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react'
 
 const stats = [
-  { label: 'Total Properties', value: '127', icon: Building2, change: '+12 this month' },
-  { label: 'Active Bookings', value: '43', icon: Calendar, change: '+8 this week' },
-  { label: 'Total Guests', value: '892', icon: Users, change: '+156 this month' },
-  { label: 'Revenue', value: '$285,450', icon: DollarSign, change: '+23% vs last month' },
+  { label: 'Rwanda Properties', value: '6', icon: Building2, change: '+2 this month' },
+  { label: 'Active Bookings', value: '23', icon: Calendar, change: '+8 this week' },
+  { label: 'Total Guests', value: '156', icon: Users, change: '+42 this month' },
+  { label: 'Revenue (RWF)', value: formatPrice(245000000, false), icon: DollarSign, change: '+18% vs last month' },
 ]
 
 const recentBookings = [
-  { id: 1, guest: 'John Smith', property: 'Mediterranean Escape', dates: 'Mar 15-22', amount: '$5,950', status: 'Confirmed' },
-  { id: 2, guest: 'Jane Doe', property: 'Tropical Paradise', dates: 'Apr 10-17', amount: '$4,550', status: 'Pending' },
-  { id: 3, guest: 'Robert Johnson', property: 'Alpine Luxury', dates: 'May 1-8', amount: '$8,400', status: 'Confirmed' },
-  { id: 4, guest: 'Emma Wilson', property: 'Coastal Villa', dates: 'Jun 5-12', amount: '$6,650', status: 'Confirmed' },
+  { id: 1, guest: 'John Smith', property: 'Kigali Luxury Villa', dates: 'Mar 15-22', amount: formatPrice(6800000, false), status: 'Confirmed' },
+  { id: 2, guest: 'Jane Doe', property: 'Volcanoes National Park', dates: 'Apr 10-17', amount: formatPrice(5100000, false), status: 'Pending' },
+  { id: 3, guest: 'Robert Johnson', property: 'Rubavu Lakeside Villa', dates: 'May 1-8', amount: formatPrice(4200000, false), status: 'Confirmed' },
+  { id: 4, guest: 'Emma Wilson', property: 'Kigali City View Suite', dates: 'Jun 5-12', amount: formatPrice(3850000, false), status: 'Confirmed' },
 ]
 
 const alerts = [
-  { id: 1, type: 'urgent', message: '2 properties require maintenance check' },
-  { id: 2, type: 'warning', message: '5 pending payment confirmations' },
-  { id: 3, type: 'info', message: 'New review submitted for Mediterranean Escape' },
+  { id: 1, type: 'urgent', message: 'Rubavu property requires urgent maintenance' },
+  { id: 2, type: 'warning', message: '3 pending payment confirmations for Rwanda bookings' },
+  { id: 3, type: 'success', message: '5-star review received for Kigali Luxury Villa' },
 ]
 
 export const metadata = {
-  title: 'Admin Dashboard | Luxury Stays',
-  description: 'Manage properties, bookings, and services',
+  title: 'Admin Dashboard | Rwanda Luxury Hospitality',
+  description: 'Manage Rwanda properties, bookings, and services',
 }
 
-export default function AdminDashboardPage() {
+export default async function AdminDashboardPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/auth/login')
+  }
+
+  const isAdmin = user.user_metadata?.role === 'admin'
+  if (!isAdmin) {
+    redirect('/dashboard')
+  }
+
+  const adminName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Admin'
+
   return (
     <main className="w-full min-h-screen flex flex-col">
       <Navbar />
@@ -41,10 +58,10 @@ export default function AdminDashboardPage() {
             {/* Header */}
             <div className="mb-8">
               <h1 className="text-4xl font-serif font-bold text-foreground mb-2">
-                Admin Dashboard
+                Admin Dashboard - Rwanda Operations
               </h1>
               <p className="text-muted-foreground">
-                Welcome back! Here's your business overview
+                Welcome back, {adminName}! Here is your Rwanda luxury hospitality business overview.
               </p>
             </div>
 
@@ -80,7 +97,7 @@ export default function AdminDashboardPage() {
               <div className="lg:col-span-2 card-luxury">
                 <div className="flex justify-between items-center mb-6">
                   <h2 className="text-xl font-serif font-bold text-foreground">
-                    Recent Bookings
+                    Recent Rwanda Bookings
                   </h2>
                   <a href="/admin/bookings">
                     <button className="text-accent hover:text-accent/80 transition-colors text-sm font-semibold">
@@ -125,35 +142,65 @@ export default function AdminDashboardPage() {
               {/* Alerts */}
               <div className="card-luxury">
                 <h2 className="text-xl font-serif font-bold text-foreground mb-6">
-                  Alerts
+                  System Alerts
                 </h2>
 
                 <div className="space-y-3">
-                  {alerts.map((alert) => (
-                    <div
-                      key={alert.id}
-                      className={`p-3 rounded-lg border flex items-start space-x-3 ${
-                        alert.type === 'urgent'
-                          ? 'bg-red-50 border-red-200'
-                          : alert.type === 'warning'
-                            ? 'bg-yellow-50 border-yellow-200'
-                            : 'bg-blue-50 border-blue-200'
-                      }`}
-                    >
-                      <AlertCircle
-                        className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+                  {alerts.map((alert) => {
+                    const Icon = alert.type === 'success' ? CheckCircle : AlertCircle
+                    return (
+                      <div
+                        key={alert.id}
+                        className={`p-3 rounded-lg border flex items-start space-x-3 ${
                           alert.type === 'urgent'
-                            ? 'text-red-600'
+                            ? 'bg-red-50 border-red-200'
                             : alert.type === 'warning'
-                              ? 'text-yellow-600'
-                              : 'text-blue-600'
+                              ? 'bg-yellow-50 border-yellow-200'
+                              : 'bg-green-50 border-green-200'
                         }`}
-                      />
-                      <p className="text-xs font-medium text-foreground">
-                        {alert.message}
-                      </p>
-                    </div>
-                  ))}
+                      >
+                        <Icon
+                          className={`w-4 h-4 flex-shrink-0 mt-0.5 ${
+                            alert.type === 'urgent'
+                              ? 'text-red-600'
+                              : alert.type === 'warning'
+                                ? 'text-yellow-600'
+                                : 'text-green-600'
+                          }`}
+                        />
+                        <p className="text-xs font-medium text-foreground">
+                          {alert.message}
+                        </p>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+
+            {/* Performance Metrics */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-8">
+              <div className="card-luxury">
+                <h3 className="font-semibold text-foreground mb-4">Occupancy Rate</h3>
+                <div className="flex items-end justify-between">
+                  <p className="text-3xl font-bold text-accent">78%</p>
+                  <span className="text-xs text-accent font-semibold">↑ 12%</span>
+                </div>
+              </div>
+
+              <div className="card-luxury">
+                <h3 className="font-semibold text-foreground mb-4">Guest Satisfaction</h3>
+                <div className="flex items-end justify-between">
+                  <p className="text-3xl font-bold text-accent">4.7/5</p>
+                  <span className="text-xs text-accent font-semibold">↑ 0.2</span>
+                </div>
+              </div>
+
+              <div className="card-luxury">
+                <h3 className="font-semibold text-foreground mb-4">Revenue This Month</h3>
+                <div className="flex items-end justify-between">
+                  <p className="text-2xl font-bold text-accent">62M RWF</p>
+                  <span className="text-xs text-accent font-semibold">↑ 8%</span>
                 </div>
               </div>
             </div>
@@ -161,7 +208,7 @@ export default function AdminDashboardPage() {
             {/* Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mt-8">
               <a href="/admin/properties">
-                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow">
+                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow py-4">
                   <h3 className="font-semibold text-foreground text-sm">
                     Manage Properties
                   </h3>
@@ -169,7 +216,7 @@ export default function AdminDashboardPage() {
               </a>
 
               <a href="/admin/bookings">
-                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow">
+                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow py-4">
                   <h3 className="font-semibold text-foreground text-sm">
                     View Bookings
                   </h3>
@@ -177,7 +224,7 @@ export default function AdminDashboardPage() {
               </a>
 
               <a href="/admin/services">
-                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow">
+                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow py-4">
                   <h3 className="font-semibold text-foreground text-sm">
                     Manage Services
                   </h3>
@@ -185,7 +232,7 @@ export default function AdminDashboardPage() {
               </a>
 
               <a href="/admin/users">
-                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow">
+                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow py-4">
                   <h3 className="font-semibold text-foreground text-sm">
                     View Users
                   </h3>

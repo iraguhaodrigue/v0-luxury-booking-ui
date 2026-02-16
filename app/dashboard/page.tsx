@@ -1,44 +1,65 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layouts/navbar'
 import { DashboardSidebar } from '@/components/layouts/dashboard-sidebar'
 import { Footer } from '@/components/layouts/footer'
-import { Calendar, MapPin, DollarSign, Star } from 'lucide-react'
+import { formatPrice } from '@/lib/utils/currency'
+import { Calendar, MapPin, DollarSign, Star, Heart, TrendingUp } from 'lucide-react'
 
 const recentBookings = [
   {
     id: 1,
-    property: 'Mediterranean Escape',
-    location: 'Santorini, Greece',
+    property: 'Kigali Luxury Villa',
+    location: 'Kigali, Rwanda',
     checkIn: '2025-03-15',
     checkOut: '2025-03-22',
     status: 'Confirmed',
-    total: 5950,
+    total: 6800000,
     image: 'https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=300&q=80',
   },
   {
     id: 2,
-    property: 'Tropical Paradise',
-    location: 'Bali, Indonesia',
+    property: 'Volcanoes National Park Villa',
+    location: 'Musanze, Rwanda',
     checkIn: '2025-04-10',
     checkOut: '2025-04-17',
     status: 'Pending',
-    total: 4550,
+    total: 5100000,
     image: 'https://images.unsplash.com/photo-1551821440-e5b88667fab0?w=300&q=80',
   },
 ]
 
 const stats = [
   { label: 'Total Bookings', value: '12', icon: Calendar },
-  { label: 'Nights Stayed', value: '92', icon: MapPin },
-  { label: 'Total Spent', value: '$28,450', icon: DollarSign },
+  { label: 'Total Nights', value: '92', icon: TrendingUp },
+  { label: 'Favorites', value: '8', icon: Heart },
   { label: 'Avg. Rating', value: '4.8/5', icon: Star },
 ]
 
 export const metadata = {
-  title: 'Dashboard | Luxury Stays',
-  description: 'Manage your luxury stays bookings and account',
+  title: 'Dashboard | Rwanda Luxury Hospitality',
+  description: 'Manage your Rwanda luxury accommodation bookings and account',
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/auth/login')
+  }
+
+  // If admin, redirect to admin dashboard
+  const isAdmin = user.user_metadata?.role === 'admin'
+  if (isAdmin) {
+    redirect('/admin')
+  }
+
+  const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Guest'
+
+  // Calculate total spent in RWF
+  const totalSpent = recentBookings.reduce((sum, b) => sum + b.total, 0)
+
   return (
     <main className="w-full min-h-screen flex flex-col">
       <Navbar />
@@ -51,10 +72,10 @@ export default function DashboardPage() {
             {/* Welcome Section */}
             <div className="mb-8">
               <h1 className="text-4xl font-serif font-bold text-foreground mb-2">
-                Welcome Back, Guest
+                Welcome Back, {userName}
               </h1>
               <p className="text-muted-foreground">
-                Manage your bookings and account preferences
+                Manage your Rwanda luxury stay bookings and account preferences
               </p>
             </div>
 
@@ -86,7 +107,7 @@ export default function DashboardPage() {
             <div className="bg-card rounded-lg shadow-luxury p-6 mb-12">
               <div className="flex justify-between items-center mb-6">
                 <h2 className="text-2xl font-serif font-bold text-foreground">
-                  Recent Bookings
+                  Recent Rwanda Bookings
                 </h2>
                 <a href="/dashboard/bookings">
                   <button className="text-accent hover:text-accent/80 transition-colors text-sm font-semibold">
@@ -139,7 +160,7 @@ export default function DashboardPage() {
                         </span>
                       </div>
                       <p className="text-lg font-bold text-foreground">
-                        ${booking.total}
+                        {formatPrice(booking.total, false)}
                       </p>
                     </div>
                   </div>
@@ -147,37 +168,64 @@ export default function DashboardPage() {
               </div>
             </div>
 
+            {/* Account Summary */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+              <div className="card-luxury">
+                <h3 className="text-lg font-serif font-bold text-foreground mb-4">
+                  Total Spent in Rwanda
+                </h3>
+                <p className="text-3xl font-bold text-accent mb-2">
+                  {formatPrice(totalSpent, false)}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Across {recentBookings.length} bookings
+                </p>
+              </div>
+
+              <div className="card-luxury">
+                <h3 className="text-lg font-serif font-bold text-foreground mb-4">
+                  Loyalty Status
+                </h3>
+                <p className="text-2xl font-bold text-foreground mb-2">
+                  VIP Member
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Earn points on every booking
+                </p>
+              </div>
+            </div>
+
             {/* Quick Actions */}
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <a href="/properties">
-                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow">
+                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow h-full">
                   <h3 className="text-xl font-serif font-bold text-foreground mb-2">
                     Browse Properties
                   </h3>
                   <p className="text-muted-foreground text-sm">
-                    Discover new luxury accommodations
+                    Discover Rwanda luxury accommodations
                   </p>
                 </button>
               </a>
 
               <a href="/services">
-                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow">
+                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow h-full">
                   <h3 className="text-xl font-serif font-bold text-foreground mb-2">
                     Add Services
                   </h3>
                   <p className="text-muted-foreground text-sm">
-                    Enhance your stay with premium services
+                    Enhance with premium local services
                   </p>
                 </button>
               </a>
 
               <a href="/dashboard/profile">
-                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow">
+                <button className="card-luxury w-full text-center hover:shadow-luxury-md transition-shadow h-full">
                   <h3 className="text-xl font-serif font-bold text-foreground mb-2">
                     Edit Profile
                   </h3>
                   <p className="text-muted-foreground text-sm">
-                    Update your account information
+                    Update account information
                   </p>
                 </button>
               </a>

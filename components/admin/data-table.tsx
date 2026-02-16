@@ -1,3 +1,5 @@
+'use client'
+
 import { Edit, Trash2, Eye } from 'lucide-react'
 
 interface Column {

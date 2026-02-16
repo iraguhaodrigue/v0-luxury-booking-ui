@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'Luxury Stays | Premium Villas & Apartments',
-  description: 'Book luxury villas, apartments, and premium car rentals. Experience elegant hospitality with our curated collection of high-end properties.',
-  keywords: ['luxury villas', 'apartments', 'car rental', 'hospitality', 'travel'],
-  authors: [{ name: 'Luxury Stays' }],
+  title: 'Rwanda Luxury | Premium Villas & Hospitality',
+  description: 'Experience luxury living in Rwanda. Book exquisite villas, hotel rooms, and premium services in Kigali, Rubavu, Musanze, and Huye.',
+  keywords: ['luxury villas Rwanda', 'hotel rooms', 'Rwanda hospitality', 'Kigali villas', 'premium accommodations'],
+  authors: [{ name: 'Rwanda Luxury Hospitality' }],
 }
 
 export const viewport: Viewport = {

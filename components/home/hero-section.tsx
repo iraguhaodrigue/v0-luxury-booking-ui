@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { MapPin, Calendar, Users } from 'lucide-react'
+import { RWANDA_LOCATIONS } from '@/lib/constants/rwanda-data'
 
 export function HeroSection() {
   const [searchData, setSearchData] = useState({
@@ -24,28 +25,31 @@ export function HeroSection() {
         className="absolute inset-0 bg-cover bg-center"
         style={{
           backgroundImage:
-            'url(https://images.unsplash.com/photo-1613395877344-13d4a8e0d049?w=2000&q=80)',
+            'url(https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=2000&q=80)',
         }}
       >
-        <div className="absolute inset-0 bg-black/30" />
+        <div className="absolute inset-0 bg-black/35" />
       </div>
 
       {/* Content */}
       <div className="relative h-full flex flex-col items-center justify-center px-4 text-center">
         {/* Headline */}
         <div className="mb-8 md:mb-12">
+          <p className="text-accent text-sm md:text-base font-semibold mb-2 tracking-widest">
+            WELCOME TO RWANDA
+          </p>
           <h1 className="text-4xl md:text-6xl lg:text-7xl font-serif font-bold text-white mb-4 text-balance">
-            Experience Luxury Living
+            Experience Luxury Living in Rwanda
           </h1>
-          <p className="text-xl md:text-2xl text-white/90 font-light">
-            Book Villas, Rooms & Premium Services
+          <p className="text-lg md:text-2xl text-white/90 font-light max-w-2xl mx-auto">
+            Book exquisite villas, premium hotel rooms, and curated services in Rwanda's most beautiful destinations
           </p>
         </div>
 
         {/* Search Bar */}
         <form
           onSubmit={handleSearch}
-          className="w-full max-w-4xl bg-white rounded-lg shadow-luxury-lg p-6 md:p-8"
+          className="w-full max-w-5xl bg-white rounded-lg shadow-luxury-lg p-6 md:p-8"
         >
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
             {/* Location */}
@@ -54,15 +58,20 @@ export function HeroSection() {
                 <MapPin className="w-4 h-4 inline mr-1" />
                 Location
               </label>
-              <input
-                type="text"
-                placeholder="Where to go?"
+              <select
                 value={searchData.location}
                 onChange={(e) =>
                   setSearchData({ ...searchData, location: e.target.value })
                 }
                 className="input-luxury text-sm"
-              />
+              >
+                <option value="">Select location</option>
+                {RWANDA_LOCATIONS.map((location) => (
+                  <option key={location} value={location}>
+                    {location}
+                  </option>
+                ))}
+              </select>
             </div>
 
             {/* Check-in */}
@@ -114,7 +123,8 @@ export function HeroSection() {
                 <option value="1">1 Guest</option>
                 <option value="2">2 Guests</option>
                 <option value="3">3 Guests</option>
-                <option value="4">4+ Guests</option>
+                <option value="4">4 Guests</option>
+                <option value="5">5+ Guests</option>
               </select>
             </div>
 
@@ -133,16 +143,16 @@ export function HeroSection() {
         {/* Quick Stats */}
         <div className="mt-12 md:mt-16 grid grid-cols-3 gap-8 text-white">
           <div className="text-center">
-            <p className="text-3xl md:text-4xl font-serif font-bold">500+</p>
-            <p className="text-sm mt-2 text-white/80">Premium Properties</p>
+            <p className="text-3xl md:text-4xl font-serif font-bold">80+</p>
+            <p className="text-sm mt-2 text-white/80">Luxury Properties</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl md:text-4xl font-serif font-bold">50K+</p>
+            <p className="text-3xl md:text-4xl font-serif font-bold">15K+</p>
             <p className="text-sm mt-2 text-white/80">Happy Guests</p>
           </div>
           <div className="text-center">
-            <p className="text-3xl md:text-4xl font-serif font-bold">25+</p>
-            <p className="text-sm mt-2 text-white/80">Countries</p>
+            <p className="text-3xl md:text-4xl font-serif font-bold">4</p>
+            <p className="text-sm mt-2 text-white/80">Prime Locations</p>
           </div>
         </div>
       </div>

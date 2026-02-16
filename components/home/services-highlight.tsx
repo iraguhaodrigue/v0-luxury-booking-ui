@@ -4,75 +4,64 @@ import Link from 'next/link'
 import {
   Car,
   Utensils,
-  Sparkles,
-  Plane,
+  Heart,
+  MapPin,
   ShoppingBag,
-  Wand2,
+  Camera,
+  Compass,
+  Wine,
 } from 'lucide-react'
+import { SERVICES } from '@/lib/constants/rwanda-data'
 
-const services = [
-  {
-    icon: Car,
-    title: 'Premium Car Rental',
-    description: 'Luxury vehicles at your disposal for seamless travel',
-  },
-  {
-    icon: Utensils,
-    title: 'Private Chef Services',
-    description: 'World-class culinary experiences tailored to your taste',
-  },
-  {
-    icon: Sparkles,
-    title: 'Spa & Wellness',
-    description: 'Rejuvenate with our premium spa and wellness treatments',
-  },
-  {
-    icon: Plane,
-    title: 'Airport Transfers',
-    description: 'VIP ground transportation with professional drivers',
-  },
-  {
-    icon: ShoppingBag,
-    title: 'Personal Shopping',
-    description: 'Exclusive shopping experiences in luxury destinations',
-  },
-  {
-    icon: Wand2,
-    title: 'Housekeeping',
-    description: 'Premium cleaning and maintenance services available',
-  },
-]
+const serviceIcons: Record<string, any> = {
+  car: Car,
+  utensils: Utensils,
+  heart: Heart,
+  'shopping-bag': ShoppingBag,
+  camera: Camera,
+  compass: Compass,
+  'wine-glass': Wine,
+  home: MapPin,
+}
 
 export function ServicesHighlight() {
+  const highlightedServices = SERVICES.slice(0, 6)
+
   return (
     <section className="py-20 md:py-28 bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="text-center mb-16">
+          <p className="text-accent text-sm font-semibold mb-2 tracking-widest">
+            PREMIUM SERVICES
+          </p>
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-4">
-            Premium Services
+            Elevate Your Experience
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Enhance your stay with our curated collection of luxury services and experiences
+            From airport transfers to private chefs, our curated services make your Rwanda stay unforgettable
           </p>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {services.map((service, index) => {
-            const Icon = service.icon
+          {highlightedServices.map((service) => {
+            const IconComponent = serviceIcons[service.icon] || Car
             return (
               <div
-                key={index}
-                className="card-luxury flex flex-col items-start group hover:bg-card/50"
+                key={service.id}
+                className="card-luxury flex flex-col items-start group hover:bg-card/80 hover:shadow-luxury-md transition-all"
               >
                 <div className="w-14 h-14 bg-accent/10 rounded-lg flex items-center justify-center mb-6 group-hover:bg-accent/20 transition-colors">
-                  <Icon className="w-7 h-7 text-accent" />
+                  <IconComponent className="w-7 h-7 text-accent" />
                 </div>
 
                 <h3 className="text-lg font-serif font-bold text-foreground mb-2">
-                  {service.title}
+                  {service.name}
                 </h3>
-                <p className="text-muted-foreground text-sm">
+                <p className="text-muted-foreground text-sm mb-4">
                   {service.description}
+                </p>
+                <p className="text-accent font-semibold mt-auto">
+                  From {(service.price / 1000).toFixed(0)}K RWF
                 </p>
               </div>
             )
