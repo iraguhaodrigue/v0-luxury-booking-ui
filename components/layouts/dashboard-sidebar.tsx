@@ -1,9 +1,10 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { Calendar, User, CreditCard, LogOut, Home, Menu, X } from 'lucide-react'
 import { useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
   { href: '/dashboard', icon: Home, label: 'Overview' },
@@ -14,7 +15,15 @@ const navItems = [
 
 export function DashboardSidebar() {
   const pathname = usePathname()
+  const router = useRouter()
   const [isOpen, setIsOpen] = useState(false)
+
+  async function handleLogout() {
+    const supabase = createClient()
+    await supabase.auth.signOut()
+    router.push('/')
+    router.refresh()
+  }
 
   return (
     <>
@@ -24,6 +33,7 @@ export function DashboardSidebar() {
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="p-2 hover:bg-secondary rounded-md transition-colors"
+          aria-label={isOpen ? 'Close menu' : 'Open menu'}
         >
           {isOpen ? (
             <X className="w-6 h-6 text-foreground" />
@@ -45,7 +55,7 @@ export function DashboardSidebar() {
             return (
               <Link key={item.href} href={item.href}>
                 <button
-                  className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                  className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                     isActive
                       ? 'bg-accent text-accent-foreground'
                       : 'text-foreground hover:bg-background'
@@ -60,7 +70,10 @@ export function DashboardSidebar() {
 
           <hr className="my-4 border-border" />
 
-          <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-foreground hover:bg-background transition-colors">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-destructive hover:bg-background transition-colors"
+          >
             <LogOut className="w-5 h-5 flex-shrink-0" />
             <span className="font-medium">Logout</span>
           </button>
@@ -81,7 +94,7 @@ export function DashboardSidebar() {
                 <Link key={item.href} href={item.href}>
                   <button
                     onClick={() => setIsOpen(false)}
-                    className={`w-full flex items-center space-x-3 px-4 py-3 rounded-lg transition-colors ${
+                    className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
                       isActive
                         ? 'bg-accent text-accent-foreground'
                         : 'text-foreground hover:bg-background'
@@ -96,7 +109,13 @@ export function DashboardSidebar() {
 
             <hr className="my-4 border-border" />
 
-            <button className="w-full flex items-center space-x-3 px-4 py-3 rounded-lg text-foreground hover:bg-background transition-colors">
+            <button
+              onClick={() => {
+                setIsOpen(false)
+                handleLogout()
+              }}
+              className="w-full flex items-center gap-3 px-4 py-3 rounded-lg text-destructive hover:bg-background transition-colors"
+            >
               <LogOut className="w-5 h-5 flex-shrink-0" />
               <span className="font-medium">Logout</span>
             </button>

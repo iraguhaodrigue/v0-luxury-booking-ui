@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layouts/navbar'
 import { AdminSidebar } from '@/components/layouts/admin-sidebar'
 import { Footer } from '@/components/layouts/footer'
@@ -29,7 +31,21 @@ export const metadata = {
   description: 'Manage Rwanda properties, bookings, and services',
 }
 
-export default function AdminDashboardPage() {
+export default async function AdminDashboardPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/auth/login')
+  }
+
+  const isAdmin = user.user_metadata?.role === 'admin'
+  if (!isAdmin) {
+    redirect('/dashboard')
+  }
+
+  const adminName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Admin'
+
   return (
     <main className="w-full min-h-screen flex flex-col">
       <Navbar />
@@ -45,7 +61,7 @@ export default function AdminDashboardPage() {
                 Admin Dashboard - Rwanda Operations
               </h1>
               <p className="text-muted-foreground">
-                Welcome back! Here's your Rwanda luxury hospitality business overview
+                Welcome back, {adminName}! Here is your Rwanda luxury hospitality business overview.
               </p>
             </div>
 

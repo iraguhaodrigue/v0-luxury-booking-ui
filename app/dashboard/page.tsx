@@ -1,3 +1,5 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layouts/navbar'
 import { DashboardSidebar } from '@/components/layouts/dashboard-sidebar'
 import { Footer } from '@/components/layouts/footer'
@@ -39,7 +41,22 @@ export const metadata = {
   description: 'Manage your Rwanda luxury accommodation bookings and account',
 }
 
-export default function DashboardPage() {
+export default async function DashboardPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/auth/login')
+  }
+
+  // If admin, redirect to admin dashboard
+  const isAdmin = user.user_metadata?.role === 'admin'
+  if (isAdmin) {
+    redirect('/admin')
+  }
+
+  const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Guest'
+
   // Calculate total spent in RWF
   const totalSpent = recentBookings.reduce((sum, b) => sum + b.total, 0)
 
@@ -55,7 +72,7 @@ export default function DashboardPage() {
             {/* Welcome Section */}
             <div className="mb-8">
               <h1 className="text-4xl font-serif font-bold text-foreground mb-2">
-                Welcome Back, Guest
+                Welcome Back, {userName}
               </h1>
               <p className="text-muted-foreground">
                 Manage your Rwanda luxury stay bookings and account preferences

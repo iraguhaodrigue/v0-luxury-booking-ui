@@ -1,4 +1,4 @@
-import { supabase } from './client'
+import { createClient } from './client'
 
 export interface Property {
   id: number
@@ -37,6 +37,7 @@ export interface Room {
 export interface Booking {
   id: number
   user_id: number
+  auth_user_id: string | null
   room_id: number
   check_in_date: string
   check_out_date: string
@@ -49,6 +50,7 @@ export interface Booking {
 }
 
 export async function getProperties(): Promise<Property[]> {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('properties')
     .select('*')
@@ -59,6 +61,7 @@ export async function getProperties(): Promise<Property[]> {
 }
 
 export async function getProperty(id: number): Promise<Property> {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('properties')
     .select('*')
@@ -70,6 +73,7 @@ export async function getProperty(id: number): Promise<Property> {
 }
 
 export async function getPropertiesByCity(city: string): Promise<Property[]> {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('properties')
     .select('*')
@@ -81,6 +85,7 @@ export async function getPropertiesByCity(city: string): Promise<Property[]> {
 }
 
 export async function getPropertyRooms(propertyId: number): Promise<Room[]> {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('rooms')
     .select('*')
@@ -92,6 +97,7 @@ export async function getPropertyRooms(propertyId: number): Promise<Room[]> {
 }
 
 export async function getRoom(id: number): Promise<Room> {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('rooms')
     .select('*')
@@ -102,11 +108,12 @@ export async function getRoom(id: number): Promise<Room> {
   return data
 }
 
-export async function getUserBookings(userId: number): Promise<Booking[]> {
+export async function getUserBookings(authUserId: string): Promise<Booking[]> {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('bookings')
     .select('*')
-    .eq('user_id', userId)
+    .eq('auth_user_id', authUserId)
     .order('created_at', { ascending: false })
 
   if (error) throw error
@@ -114,6 +121,7 @@ export async function getUserBookings(userId: number): Promise<Booking[]> {
 }
 
 export async function getBooking(id: number): Promise<Booking> {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('bookings')
     .select('*')
@@ -129,6 +137,7 @@ export async function checkRoomAvailability(
   checkInDate: string,
   checkOutDate: string
 ): Promise<boolean> {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('bookings')
     .select('id')
@@ -142,18 +151,19 @@ export async function checkRoomAvailability(
 }
 
 export async function createBooking(
-  userId: number,
+  authUserId: string,
   roomId: number,
   checkInDate: string,
   checkOutDate: string,
   totalGuests: number,
   totalPrice: number
 ): Promise<Booking> {
+  const supabase = createClient()
   const { data, error } = await supabase
     .from('bookings')
     .insert([
       {
-        user_id: userId,
+        auth_user_id: authUserId,
         room_id: roomId,
         check_in_date: checkInDate,
         check_out_date: checkOutDate,
