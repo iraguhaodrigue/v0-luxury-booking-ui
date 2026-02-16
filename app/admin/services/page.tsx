@@ -16,11 +16,11 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, Pencil, Trash2, ImageIcon, Loader2, Check, X } from 'lucide-react'
 
 interface Service {
-  id: number; name: string; description: string | null; price: number
-  category: string | null; is_active: boolean; image_url: string | null
+  id: number; name: string; description: string | null; price_per_day: number
+  service_type: string; category: string | null; is_active: boolean; image_url: string | null
 }
 
-const emptyForm = { name: '', description: '', price: '', category: '', is_active: 'true' }
+const emptyForm = { name: '', description: '', price: '', service_type: 'spa', category: '', is_active: 'true' }
 
 export default function ServicesPage() {
   const [items, setItems] = useState<Service[]>([])
@@ -46,7 +46,7 @@ export default function ServicesPage() {
   const openAdd = () => { setEditing(null); setForm(emptyForm); setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true) }
   const openEdit = (item: Service) => {
     setEditing(item)
-    setForm({ name: item.name, description: item.description || '', price: String(item.price), category: item.category || '', is_active: String(item.is_active) })
+    setForm({ name: item.name, description: item.description || '', price: String(item.price_per_day), service_type: item.service_type, category: item.category || '', is_active: String(item.is_active) })
     setImageFile(null); setImagePreview(item.image_url || null); setError(''); setDialogOpen(true)
   }
 
@@ -56,7 +56,7 @@ export default function ServicesPage() {
     const supabase = createClient()
     let imageUrl = editing?.image_url || null
     if (imageFile) { const url = await uploadImage(imageFile, 'services'); if (url) imageUrl = url }
-    const payload = { name: form.name, description: form.description || null, price: parseFloat(form.price), category: form.category || null, is_active: form.is_active === 'true', image_url: imageUrl }
+    const payload = { name: form.name, description: form.description || null, price_per_day: parseFloat(form.price), service_type: form.service_type, category: form.category || null, is_active: form.is_active === 'true', image_url: imageUrl }
     const { error: dbError } = editing
       ? await supabase.from('services').update(payload).eq('id', editing.id)
       : await supabase.from('services').insert(payload)
@@ -94,7 +94,7 @@ export default function ServicesPage() {
                       <TableCell>{item.image_url ? <img src={item.image_url} alt={item.name} className="h-12 w-16 object-cover rounded" /> : <div className="h-12 w-16 bg-muted rounded flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>}</TableCell>
                       <TableCell className="font-medium">{item.name}</TableCell>
                       <TableCell><Badge variant="secondary">{item.category || 'General'}</Badge></TableCell>
-                      <TableCell>{fmt(item.price)}</TableCell>
+                      <TableCell>{fmt(item.price_per_day)}</TableCell>
                       <TableCell>{item.is_active ? <Check className="h-5 w-5 text-emerald-500" /> : <X className="h-5 w-5 text-destructive" />}</TableCell>
                       <TableCell className="text-right"><div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
@@ -112,10 +112,10 @@ export default function ServicesPage() {
                 {error && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">{error}</p>}
                 <div><Label>Service Name *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Airport Transfer" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><Label>Category</Label><Input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="e.g. Transport, Spa" /></div>
                   <div><Label>Price (RWF) *</Label><Input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="50000" /></div>
+                  <div><Label>Service Type</Label><Select value={form.service_type} onValueChange={v => setForm({ ...form, service_type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="spa">Spa</SelectItem><SelectItem value="dining">Dining</SelectItem><SelectItem value="tour">Tour</SelectItem><SelectItem value="transport">Transport</SelectItem></SelectContent></Select></div>
                 </div>
-                <div><Label>Active</Label><Select value={form.is_active} onValueChange={v => setForm({ ...form, is_active: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="true">Yes</SelectItem><SelectItem value="false">No</SelectItem></SelectContent></Select></div>
+                <div><Label>Category</Label><Input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="e.g. Wellness, Food & Beverage" /></div>
                 <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} placeholder="Describe the service..." /></div>
                 <div><Label>Image</Label><Input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setImageFile(f); setImagePreview(URL.createObjectURL(f)) } }} />
                   {imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded border" />}</div>
