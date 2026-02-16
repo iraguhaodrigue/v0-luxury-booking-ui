@@ -1,52 +1,9 @@
 import Link from 'next/link'
-import { Star, MapPin, Bed, Bath } from 'lucide-react'
+import { Star, MapPin, Users } from 'lucide-react'
+import { formatPrice } from '@/lib/utils/currency'
+import { SAMPLE_PROPERTIES } from '@/lib/constants/rwanda-data'
 
-const apartments = [
-  {
-    id: 5,
-    name: 'Manhattan Penthouse',
-    location: 'New York, USA',
-    price: 750,
-    image: 'https://images.unsplash.com/photo-1512917774080-9a485dc1d1fb?w=600&q=80',
-    rating: 4.8,
-    reviews: 198,
-    beds: 3,
-    baths: 2,
-  },
-  {
-    id: 6,
-    name: 'Parisian Elegance',
-    location: 'Paris, France',
-    price: 680,
-    image: 'https://images.unsplash.com/photo-1468824357382-a7db1d6ef206?w=600&q=80',
-    rating: 4.9,
-    reviews: 224,
-    beds: 2,
-    baths: 2,
-  },
-  {
-    id: 7,
-    name: 'Tokyo Metropolitan',
-    location: 'Tokyo, Japan',
-    price: 620,
-    image: 'https://images.unsplash.com/photo-1486346150496-3e25e0e86d80?w=600&q=80',
-    rating: 4.7,
-    reviews: 156,
-    beds: 2,
-    baths: 1,
-  },
-  {
-    id: 8,
-    name: 'Dubai Marina Suite',
-    location: 'Dubai, UAE',
-    price: 890,
-    image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=600&q=80',
-    rating: 4.9,
-    reviews: 287,
-    beds: 3,
-    baths: 3,
-  },
-]
+const hotels = SAMPLE_PROPERTIES.filter((p) => p.type === 'hotel').slice(0, 3)
 
 export function FeaturedApartments() {
   return (
@@ -54,41 +11,49 @@ export function FeaturedApartments() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-16">
+          <p className="text-accent text-sm font-semibold mb-2 tracking-widest">
+            HOTEL ROOMS
+          </p>
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-4">
-            Featured Apartments
+            Premier Hotel Rooms
           </h2>
           <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-            Urban sophistication meets comfort in our curated city apartments
+            Experience luxury hospitality in Rwanda's finest hotels with premium services and breathtaking views
           </p>
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {apartments.map((apt) => (
-            <Link key={apt.id} href={`/properties/${apt.id}`}>
-              <div className="card-luxury cursor-pointer group overflow-hidden">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          {hotels.map((hotel) => (
+            <Link key={hotel.id} href={`/properties/${hotel.id}`}>
+              <div className="card-luxury cursor-pointer group overflow-hidden h-full flex flex-col">
                 {/* Image */}
-                <div className="relative h-56 mb-4 overflow-hidden rounded-lg">
+                <div className="relative h-64 mb-4 overflow-hidden rounded-lg">
                   <img
-                    src={apt.image}
-                    alt={apt.name}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    src={hotel.images[0]}
+                    alt={hotel.name}
+                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="absolute top-3 right-3 bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                    ${apt.price}/night
+                    {formatPrice(hotel.price_per_night, false)}/night
+                  </div>
+                  <div className="absolute bottom-3 left-3">
+                    <span className="inline-block bg-primary/90 text-primary-foreground px-2 py-1 rounded text-xs font-semibold">
+                      Hotel
+                    </span>
                   </div>
                 </div>
 
                 {/* Content */}
-                <div className="space-y-3">
+                <div className="space-y-3 flex-grow flex flex-col">
                   {/* Rating */}
-                  <div className="flex items-center space-x-1">
+                  <div className="flex items-center space-x-2">
                     <div className="flex">
                       {[...Array(5)].map((_, i) => (
                         <Star
                           key={i}
                           className={`w-4 h-4 ${
-                            i < Math.floor(apt.rating)
+                            i < Math.floor(hotel.rating)
                               ? 'fill-accent text-accent'
                               : 'text-muted'
                           }`}
@@ -96,38 +61,49 @@ export function FeaturedApartments() {
                       ))}
                     </div>
                     <span className="text-sm font-semibold text-foreground">
-                      {apt.rating}
+                      {hotel.rating}
                     </span>
                     <span className="text-xs text-muted-foreground">
-                      ({apt.reviews})
+                      ({hotel.reviews})
                     </span>
                   </div>
 
                   {/* Name */}
-                  <h3 className="text-lg font-serif font-bold text-foreground">
-                    {apt.name}
+                  <h3 className="text-xl font-serif font-bold text-foreground line-clamp-2">
+                    {hotel.name}
                   </h3>
 
                   {/* Location */}
                   <div className="flex items-center space-x-1 text-muted-foreground">
-                    <MapPin className="w-4 h-4" />
-                    <span className="text-sm">{apt.location}</span>
+                    <MapPin className="w-4 h-4 flex-shrink-0" />
+                    <span className="text-sm">{hotel.location}, Rwanda</span>
                   </div>
 
-                  {/* Amenities */}
-                  <div className="flex items-center space-x-4 text-sm text-muted-foreground">
-                    <div className="flex items-center space-x-1">
-                      <Bed className="w-4 h-4" />
-                      <span>{apt.beds} Beds</span>
-                    </div>
-                    <div className="flex items-center space-x-1">
-                      <Bath className="w-4 h-4" />
-                      <span>{apt.baths} Baths</span>
-                    </div>
+                  {/* Description */}
+                  <p className="text-sm text-muted-foreground line-clamp-2">
+                    {hotel.description}
+                  </p>
+
+                  {/* Capacity */}
+                  <div className="flex items-center space-x-1 text-sm text-muted-foreground py-2">
+                    <Users className="w-4 h-4" />
+                    <span>Up to {hotel.capacity} guests per room</span>
+                  </div>
+
+                  {/* Amenities tags */}
+                  <div className="flex gap-2 flex-wrap">
+                    {hotel.amenities.slice(0, 3).map((amenity, idx) => (
+                      <span
+                        key={idx}
+                        className="text-xs bg-primary/10 text-primary px-2 py-1 rounded"
+                      >
+                        {amenity}
+                      </span>
+                    ))}
                   </div>
 
                   {/* Button */}
-                  <button className="w-full btn-luxury-ghost text-sm mt-4">
+                  <button className="w-full btn-luxury-ghost text-sm mt-auto">
                     View Details
                   </button>
                 </div>
@@ -138,9 +114,9 @@ export function FeaturedApartments() {
 
         {/* CTA */}
         <div className="text-center mt-16">
-          <Link href="/properties">
+          <Link href="/properties?type=hotel">
             <button className="btn-luxury-primary text-lg">
-              View All Apartments
+              Explore All Hotels
             </button>
           </Link>
         </div>

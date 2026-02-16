@@ -5,59 +5,43 @@ import Link from 'next/link'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { PropertyGallery } from '@/components/properties/property-gallery'
+import { RelatedProperties } from '@/components/properties/related-properties'
+import { formatPrice } from '@/lib/utils/currency'
+import { SAMPLE_PROPERTIES } from '@/lib/constants/rwanda-data'
 import {
   Star,
   MapPin,
-  Bed,
-  Bath,
-  Wifi,
-  AirVent,
+  Users,
   DollarSign,
   Calendar,
-  Users,
   Heart,
   Share2,
   Check,
+  Wifi,
+  Utensils,
+  Sparkles,
 } from 'lucide-react'
 
-const propertyData = {
-  1: {
-    name: 'Mediterranean Escape',
-    location: 'Santorini, Greece',
-    price: 850,
-    images: [
-      'https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=1200&q=80',
-      'https://images.unsplash.com/photo-1566073771259-6a8506099945?w=1200&q=80',
-      'https://images.unsplash.com/photo-1582719471384-894fbb16e074?w=1200&q=80',
-      'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=1200&q=80',
-    ],
-    rating: 4.9,
-    reviews: 247,
-    beds: 4,
-    baths: 3,
-    description:
-      'A stunning Mediterranean villa nestled on the cliffs of Santorini with breathtaking views of the Aegean Sea. This luxurious property features modern amenities combined with traditional Greek architecture.',
-    amenities: [
-      { icon: Wifi, name: 'High-Speed WiFi' },
-      { icon: AirVent, name: 'Air Conditioning' },
-      { icon: Calendar, name: 'Smart Climate Control' },
-      { icon: DollarSign, name: 'Smart Lock' },
-      { icon: Users, name: '24/7 Concierge' },
-      { icon: Heart, name: 'Premium Linens' },
-    ],
-    highlights: [
-      'Infinity pool with sea views',
-      'Private beach access',
-      'State-of-the-art kitchen',
-      'Home theater system',
-      'Steam room and sauna',
-      'Spa bath',
-    ],
+// Map Rwanda data to display format
+const propertyDataMap = SAMPLE_PROPERTIES.reduce(
+  (acc, prop) => {
+    acc[prop.id] = {
+      ...prop,
+      amenityIcons: prop.amenities.slice(0, 6).map((name) => ({
+        icon: name.includes('Pool') ? Sparkles : name.includes('Chef') ? Utensils : Wifi,
+        name,
+      })),
+      highlights: prop.amenities,
+    }
+    return acc
   },
-}
+  {} as Record<number, any>
+)
 
 export default function PropertyDetailsPage({ params }: { params: { id: string } }) {
-  const property = propertyData[params.id as keyof typeof propertyData] || propertyData[1]
+  const propertyId = parseInt(params.id)
+  const property = propertyDataMap[propertyId] || propertyDataMap[1]
+  
   const [checkIn, setCheckIn] = useState('')
   const [checkOut, setCheckOut] = useState('')
   const [guests, setGuests] = useState('2')
@@ -70,7 +54,7 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
   }
 
   const nights = calculateNights()
-  const totalPrice = nights > 0 ? property.price * nights : 0
+  const totalPrice = nights > 0 ? property.price_per_night * nights : 0
 
   return (
     <main className="w-full">
@@ -89,12 +73,15 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
               <div>
                 <div className="flex items-start justify-between mb-4">
                   <div>
+                    <p className="text-accent text-sm font-semibold mb-2 tracking-widest">
+                      {property.type.toUpperCase()}
+                    </p>
                     <h1 className="text-4xl font-serif font-bold text-foreground mb-2">
                       {property.name}
                     </h1>
                     <div className="flex items-center space-x-1 text-muted-foreground mb-4">
                       <MapPin className="w-5 h-5" />
-                      <span className="text-lg">{property.location}</span>
+                      <span className="text-lg">{property.location}, Rwanda</span>
                     </div>
                   </div>
                   <div className="flex space-x-2">
@@ -134,23 +121,20 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
               <div className="grid grid-cols-3 gap-4 border-y border-border py-6">
                 <div className="text-center">
                   <div className="flex items-center justify-center space-x-1 text-foreground mb-1">
-                    <Bed className="w-5 h-5" />
-                    <span className="text-2xl font-bold">{property.beds}</span>
+                    <Users className="w-5 h-5" />
+                    <span className="text-2xl font-bold">{property.capacity}</span>
                   </div>
-                  <p className="text-sm text-muted-foreground">Bedrooms</p>
-                </div>
-                <div className="text-center">
-                  <div className="flex items-center justify-center space-x-1 text-foreground mb-1">
-                    <Bath className="w-5 h-5" />
-                    <span className="text-2xl font-bold">{property.baths}</span>
-                  </div>
-                  <p className="text-sm text-muted-foreground">Bathrooms</p>
+                  <p className="text-sm text-muted-foreground">Max Guests</p>
                 </div>
                 <div className="text-center">
                   <div className="text-2xl font-bold text-accent mb-1">
-                    ${property.price}
+                    {formatPrice(property.price_per_night, false)}
                   </div>
                   <p className="text-sm text-muted-foreground">Per Night</p>
+                </div>
+                <div className="text-center">
+                  <div className="text-2xl font-bold text-foreground mb-1">RWF</div>
+                  <p className="text-sm text-muted-foreground">Currency</p>
                 </div>
               </div>
 
@@ -167,17 +151,17 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
               {/* Amenities */}
               <div>
                 <h2 className="text-2xl font-serif font-bold text-foreground mb-6">
-                  Amenities
+                  Amenities & Features
                 </h2>
                 <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-                  {property.amenities.map((amenity, index) => {
+                  {property.amenityIcons.map((amenity: any, index: number) => {
                     const Icon = amenity.icon
                     return (
                       <div key={index} className="flex items-center space-x-3">
                         <div className="w-10 h-10 bg-accent/10 rounded-lg flex items-center justify-center flex-shrink-0">
                           <Icon className="w-5 h-5 text-accent" />
                         </div>
-                        <span className="text-foreground">{amenity.name}</span>
+                        <span className="text-foreground text-sm">{amenity.name}</span>
                       </div>
                     )
                   })}
@@ -187,12 +171,12 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
               {/* Highlights */}
               <div>
                 <h2 className="text-2xl font-serif font-bold text-foreground mb-4">
-                  Highlights
+                  Property Highlights
                 </h2>
-                <ul className="space-y-2">
-                  {property.highlights.map((highlight, index) => (
-                    <li key={index} className="flex items-center space-x-3">
-                      <Check className="w-5 h-5 text-accent flex-shrink-0" />
+                <ul className="space-y-3">
+                  {property.highlights.map((highlight: string, index: number) => (
+                    <li key={index} className="flex items-start space-x-3">
+                      <Check className="w-5 h-5 text-accent flex-shrink-0 mt-0.5" />
                       <span className="text-foreground">{highlight}</span>
                     </li>
                   ))}
@@ -207,16 +191,17 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
               {/* Price */}
               <div>
                 <p className="text-sm text-muted-foreground mb-1">Price per night</p>
-                <p className="text-3xl font-serif font-bold text-foreground">
-                  ${property.price}
+                <p className="text-3xl font-serif font-bold text-accent">
+                  {formatPrice(property.price_per_night, false)}
                 </p>
+                <p className="text-xs text-muted-foreground mt-1">Rwandan Francs</p>
               </div>
 
               {/* Booking Form */}
               <div className="space-y-4">
                 <div>
                   <label className="text-sm font-semibold text-foreground block mb-2">
-                    Check-in
+                    Check-in Date
                   </label>
                   <input
                     type="date"
@@ -228,7 +213,7 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
 
                 <div>
                   <label className="text-sm font-semibold text-foreground block mb-2">
-                    Check-out
+                    Check-out Date
                   </label>
                   <input
                     type="date"
@@ -240,7 +225,7 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
 
                 <div>
                   <label className="text-sm font-semibold text-foreground block mb-2">
-                    Guests
+                    Number of Guests
                   </label>
                   <select
                     value={guests}
@@ -251,7 +236,8 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
                     <option value="2">2 Guests</option>
                     <option value="3">3 Guests</option>
                     <option value="4">4 Guests</option>
-                    <option value="5">5+ Guests</option>
+                    <option value="5">5 Guests</option>
+                    <option value="6">6+ Guests</option>
                   </select>
                 </div>
               </div>
@@ -261,39 +247,49 @@ export default function PropertyDetailsPage({ params }: { params: { id: string }
                 <div className="border-t border-border pt-4 space-y-2">
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">
-                      ${property.price} × {nights} nights
+                      {formatPrice(property.price_per_night, false)} × {nights} nights
                     </span>
                     <span className="text-foreground font-semibold">
-                      ${totalPrice}
+                      {formatPrice(totalPrice, false)}
                     </span>
+                  </div>
+                  <div className="flex justify-between text-sm text-muted-foreground">
+                    <span>Service fee</span>
+                    <span>{formatPrice(Math.round(totalPrice * 0.05), false)}</span>
                   </div>
                   <div className="border-t border-border pt-2 flex justify-between">
                     <span className="font-semibold text-foreground">Total</span>
                     <span className="text-2xl font-bold text-accent">
-                      ${totalPrice}
+                      {formatPrice(totalPrice + Math.round(totalPrice * 0.05), false)}
                     </span>
                   </div>
                 </div>
               )}
 
               {/* CTA Button */}
-              <Link href="/booking">
+              <Link href={`/booking?property=${property.id}&checkIn=${checkIn}&checkOut=${checkOut}&guests=${guests}`}>
                 <button className="btn-luxury-accent w-full text-center">
-                  Book Now
+                  {nights > 0 ? 'Continue to Booking' : 'Select Dates to Book'}
                 </button>
               </Link>
 
               {/* Additional Info */}
               <div className="bg-secondary rounded-lg p-3 text-sm text-muted-foreground">
                 <p>
-                  You won't be charged yet. Review your details before completing
-                  your booking.
+                  You won't be charged yet. Review your details before completing your booking.
                 </p>
               </div>
             </div>
           </div>
         </div>
       </div>
+
+      {/* Related Properties */}
+      <RelatedProperties
+        currentPropertyId={property.id}
+        properties={SAMPLE_PROPERTIES}
+        propertyType={property.type}
+      />
 
       <Footer />
     </main>

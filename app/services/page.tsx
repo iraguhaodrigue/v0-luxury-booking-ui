@@ -1,111 +1,14 @@
+import Link from 'next/link'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { ServiceCard } from '@/components/services/service-card'
-import {
-  Car,
-  Utensils,
-  Sparkles,
-  Plane,
-  ShoppingBag,
-  Wand2,
-} from 'lucide-react'
-
-const services = [
-  {
-    icon: Plane,
-    title: 'Airport Transfer',
-    description:
-      'Arrive in style with our premium ground transportation service. Professional drivers, luxury vehicles, and seamless service.',
-    details: [
-      'VIP driver service',
-      'Luxury vehicle options',
-      'Real-time tracking',
-      'Meet & greet service',
-    ],
-    price: 150,
-    duration: 'Per transfer',
-    image: 'https://images.unsplash.com/photo-1566909114-f6e7ad7d3136?w=600&q=80',
-  },
-  {
-    icon: Wand2,
-    title: 'Housekeeping',
-    description:
-      'Experience immaculate cleanliness with our professional housekeeping team. Daily cleaning, laundry, and maintenance.',
-    details: [
-      'Daily cleaning service',
-      'Laundry & ironing',
-      'Restocking amenities',
-      'Maintenance checks',
-    ],
-    price: 100,
-    duration: 'Per day',
-    image: 'https://images.unsplash.com/photo-1556909114-f6e7ad7d3136?w=600&q=80',
-  },
-  {
-    icon: Utensils,
-    title: 'Private Chef',
-    description:
-      'Indulge in world-class culinary experiences prepared by our private chefs. Custom menus, dietary accommodations available.',
-    details: [
-      'Custom menu planning',
-      'International cuisine',
-      'Dietary accommodations',
-      'Wine pairing service',
-    ],
-    price: 250,
-    duration: 'Per day',
-    image: 'https://images.unsplash.com/photo-1495251119519-d06b96b57f48?w=600&q=80',
-  },
-  {
-    icon: Sparkles,
-    title: 'Spa & Wellness',
-    description:
-      'Rejuvenate your mind and body with our premium spa and wellness treatments. In-villa services available.',
-    details: [
-      'Massage therapy',
-      'Yoga sessions',
-      'Meditation classes',
-      'Wellness consultations',
-    ],
-    price: 200,
-    duration: 'Per session',
-    image: 'https://images.unsplash.com/photo-1544161515-81205f8abecc?w=600&q=80',
-  },
-  {
-    icon: ShoppingBag,
-    title: 'Personal Shopping Tour',
-    description:
-      'Discover exclusive shopping destinations with our personal shoppers. Curated experiences in luxury markets.',
-    details: [
-      'Expert shopping guides',
-      'Exclusive boutiques access',
-      'VIP treatment',
-      'Delivery coordination',
-    ],
-    price: 120,
-    duration: 'Per day',
-    image: 'https://images.unsplash.com/photo-1555529669-d355764c3cf2?w=600&q=80',
-  },
-  {
-    icon: Car,
-    title: 'Luxury Car Rental',
-    description:
-      'Drive in elegance with our fleet of premium vehicles. Professional drivers or self-drive options available.',
-    details: [
-      'Premium vehicle selection',
-      'Professional drivers',
-      'Insurance included',
-      '24/7 roadside support',
-    ],
-    price: 180,
-    duration: 'Per day',
-    image: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&q=80',
-  },
-]
+import { formatPrice } from '@/lib/utils/currency'
+import { SERVICES } from '@/lib/constants/rwanda-data'
 
 export const metadata = {
-  title: 'Premium Services | Luxury Stays',
-  description: 'Enhance your luxury vacation with our exclusive premium services',
+  title: 'Premium Services | Rwanda Luxury Hospitality',
+  description:
+    'Enhance your luxury vacation in Rwanda with our exclusive premium services. Airport transfers, private chefs, spa, and more.',
 }
 
 export default function ServicesPage() {
@@ -127,11 +30,11 @@ export default function ServicesPage() {
 
         <div className="relative h-full flex flex-col items-center justify-center px-4 text-center">
           <h1 className="text-4xl md:text-6xl font-serif font-bold text-white mb-4 text-balance">
-            Premium Services
+            Premium Services for Rwanda
           </h1>
           <p className="text-xl text-white/90 font-light max-w-2xl">
             Enhance your luxury stay with our exclusive collection of world-class
-            services
+            Rwanda-based hospitality services
           </p>
         </div>
       </section>
@@ -139,19 +42,49 @@ export default function ServicesPage() {
       {/* Services Grid */}
       <section className="py-20 md:py-28 bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-12">
+            <p className="text-muted-foreground text-center">
+              All prices in Rwandan Francs (RWF)
+            </p>
+          </div>
+
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {services.map((service, index) => (
+            {SERVICES.map((service) => (
               <ServiceCard
-                key={index}
-                icon={service.icon}
-                title={service.title}
+                key={service.id}
+                title={service.name}
                 description={service.description}
-                details={service.details}
                 price={service.price}
                 duration={service.duration}
-                image={service.image}
+                icon={service.icon}
               />
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Services Overview */}
+      <section className="py-16 md:py-24 bg-secondary">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+            <div>
+              <h3 className="font-serif font-bold text-2xl text-accent mb-2">
+                {SERVICES.length}+
+              </h3>
+              <p className="text-muted-foreground">Premium services available</p>
+            </div>
+            <div>
+              <h3 className="font-serif font-bold text-2xl text-accent mb-2">24/7</h3>
+              <p className="text-muted-foreground">Available on-demand</p>
+            </div>
+            <div>
+              <h3 className="font-serif font-bold text-2xl text-accent mb-2">Expert</h3>
+              <p className="text-muted-foreground">Professional staff</p>
+            </div>
+            <div>
+              <h3 className="font-serif font-bold text-2xl text-accent mb-2">Local</h3>
+              <p className="text-muted-foreground">Rwanda expertise</p>
+            </div>
           </div>
         </div>
       </section>
@@ -163,16 +96,20 @@ export default function ServicesPage() {
             Ready to Elevate Your Stay?
           </h2>
           <p className="text-lg text-primary-foreground/90 mb-8 max-w-2xl mx-auto">
-            Combine our luxury accommodations with premium services for an unforgettable
-            experience
+            Combine our luxury accommodations with premium services for an
+            unforgettable Rwanda experience
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
-            <button className="btn-luxury-accent">
-              Explore Properties
-            </button>
-            <button className="btn-luxury-ghost text-primary-foreground border-primary-foreground hover:bg-primary-foreground/10">
-              Contact Us
-            </button>
+            <Link href="/properties">
+              <button className="btn-luxury-accent w-full sm:w-auto">
+                Explore Properties
+              </button>
+            </Link>
+            <Link href="/contact">
+              <button className="btn-luxury-ghost text-primary-foreground border-primary-foreground hover:bg-primary-foreground/10 w-full sm:w-auto">
+                Get in Touch
+              </button>
+            </Link>
           </div>
         </div>
       </section>

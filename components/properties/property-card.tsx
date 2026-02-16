@@ -1,5 +1,6 @@
 import Link from 'next/link'
-import { Star, MapPin, Bed, Bath, Wifi, AirVent } from 'lucide-react'
+import { Star, MapPin, Users } from 'lucide-react'
+import { formatPrice } from '@/lib/utils/currency'
 
 interface PropertyCardProps {
   id: number
@@ -9,8 +10,7 @@ interface PropertyCardProps {
   image: string
   rating: number
   reviews: number
-  beds: number
-  baths: number
+  capacity: number
   amenities?: string[]
 }
 
@@ -22,8 +22,7 @@ export function PropertyCard({
   image,
   rating,
   reviews,
-  beds,
-  baths,
+  capacity,
   amenities = [],
 }: PropertyCardProps) {
   return (
@@ -34,10 +33,10 @@ export function PropertyCard({
           <img
             src={image}
             alt={name}
-            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
           />
           <div className="absolute top-3 right-3 bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm font-semibold">
-            ${price}/night
+            {formatPrice(price, false)}/night
           </div>
           <div className="absolute bottom-3 left-3">
             <span className="inline-block bg-primary/90 text-primary-foreground px-2 py-1 rounded text-xs font-semibold">
@@ -81,16 +80,10 @@ export function PropertyCard({
             <span className="text-sm">{location}</span>
           </div>
 
-          {/* Amenities */}
-          <div className="flex items-center space-x-4 text-sm text-muted-foreground py-2">
-            <div className="flex items-center space-x-1">
-              <Bed className="w-4 h-4" />
-              <span>{beds} Beds</span>
-            </div>
-            <div className="flex items-center space-x-1">
-              <Bath className="w-4 h-4" />
-              <span>{baths} Baths</span>
-            </div>
+          {/* Capacity */}
+          <div className="flex items-center space-x-1 text-sm text-muted-foreground py-2">
+            <Users className="w-4 h-4" />
+            <span>Up to {capacity} guests</span>
           </div>
 
           {/* Quick amenities tags */}
