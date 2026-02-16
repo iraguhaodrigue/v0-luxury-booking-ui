@@ -1,101 +1,177 @@
 'use client'
 
+import { useEffect, useState } from 'react'
+import { createClient } from '@/lib/supabase/client'
 import { Navbar } from '@/components/layouts/navbar'
 import { AdminSidebar } from '@/components/layouts/admin-sidebar'
 import { Footer } from '@/components/layouts/footer'
 import { DataTable } from '@/components/admin/data-table'
+import { Button } from '@/components/ui/button'
+import { useRouter } from 'next/navigation'
 
-const users = [
-  {
-    id: 1,
-    name: 'John Smith',
-    email: 'john.smith@example.com',
-    joinDate: '2024-01-15',
-    bookings: 5,
-    spent: 12500,
-    status: 'Active',
-  },
-  {
-    id: 2,
-    name: 'Jane Doe',
-    email: 'jane.doe@example.com',
-    joinDate: '2024-02-20',
-    bookings: 3,
-    spent: 8200,
-    status: 'Active',
-  },
-  {
-    id: 3,
-    name: 'Robert Johnson',
-    email: 'robert.j@example.com',
-    joinDate: '2024-03-10',
-    bookings: 8,
-    spent: 28450,
-    status: 'Active',
-  },
-  {
-    id: 4,
-    name: 'Emma Wilson',
-    email: 'emma.w@example.com',
-    joinDate: '2023-11-05',
-    bookings: 12,
-    spent: 45300,
-    status: 'Active',
-  },
-  {
-    id: 5,
-    name: 'Michael Brown',
-    email: 'michael.b@example.com',
-    joinDate: '2024-05-01',
-    bookings: 2,
-    spent: 4500,
-    status: 'Inactive',
-  },
-]
-
-const columns = [
-  { key: 'name', label: 'Name' },
-  { key: 'email', label: 'Email' },
-  {
-    key: 'joinDate',
-    label: 'Join Date',
-    render: (value: string) => new Date(value).toLocaleDateString(),
-  },
-  { key: 'bookings', label: 'Bookings' },
-  {
-    key: 'spent',
-    label: 'Total Spent',
-    render: (value: number) => `$${value.toLocaleString()}`,
-  },
-  {
-    key: 'status',
-    label: 'Status',
-    render: (value: string) => (
-      <span
-        className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-          value === 'Active'
-            ? 'bg-accent/10 text-accent'
-            : 'bg-muted text-muted-foreground'
-        }`}
-      >
-        {value}
-      </span>
-    ),
-  },
-]
+interface User {
+  id: string
+  email: string
+  full_name: string
+  role: 'client' | 'admin'
+  is_active: boolean
+  created_at: string
+}
 
 export default function UsersPage() {
-  const handleEdit = (user: any) => {
-    console.log('Edit user:', user)
+  const [users, setUsers] = useState<User[]>([])
+  const [loading, setLoading] = useState(true)
+  const [search, setSearch] = useState('')
+  const [roleFilter, setRoleFilter] = useState<string>('all')
+  const [editingUser, setEditingUser] = useState<User | null>(null)
+  const [newRole, setNewRole] = useState<'client' | 'admin'>('client')
+  const router = useRouter()
+
+  useEffect(() => {
+    fetchUsers()
+  }, [])
+
+  const fetchUsers = async () => {
+    try {
+      setLoading(true)
+      const supabase = createClient()
+      
+      const { data, error } = await supabase
+        .from('profiles')
+        .select(`
+          id,
+          full_name,
+          role,
+          is_active,
+          created_at
+        `)
+        .order('created_at', { ascending: false })
+
+      if (error) throw error
+
+      // Get emails from auth.users
+      const { data: { users: authUsers } } = await supabase.auth.admin.listUsers()
+      
+      const enrichedUsers = data?.map(user => {
+        const authUser = authUsers?.find(au => au.id === user.id)
+        return {
+          ...user,
+          email: authUser?.email || 'N/A',
+        }
+      }) || []
+
+      setUsers(enrichedUsers)
+    } catch (error) {
+      console.error('Error fetching users:', error)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  const handleDelete = (user: any) => {
-    console.log('Delete user:', user)
+  const handleChangeRole = async (user: User, newRole: 'client' | 'admin') => {
+    try {
+      const supabase = createClient()
+      
+      // Update profile role
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ role: newRole })
+        .eq('id', user.id)
+
+      if (profileError) throw profileError
+
+      // Update auth user metadata
+      const { error: authError } = await supabase.auth.admin.updateUserById(user.id, {
+        user_metadata: { role: newRole }
+      })
+
+      if (authError) throw authError
+
+      setUsers(users.map(u => u.id === user.id ? { ...u, role: newRole } : u))
+      setEditingUser(null)
+    } catch (error) {
+      console.error('Error updating user role:', error)
+    }
   }
 
-  const handleView = (user: any) => {
-    console.log('View user:', user)
+  const handleDeleteUser = async (user: User) => {
+    if (!confirm(`Are you sure you want to delete ${user.full_name}? This action cannot be undone.`)) {
+      return
+    }
+
+    try {
+      const supabase = createClient()
+      
+      // Delete profile (cascade deletes auth.users)
+      const { error } = await supabase
+        .from('profiles')
+        .delete()
+        .eq('id', user.id)
+
+      if (error) throw error
+
+      setUsers(users.filter(u => u.id !== user.id))
+    } catch (error) {
+      console.error('Error deleting user:', error)
+    }
   }
+
+  const handleToggleActive = async (user: User) => {
+    try {
+      const supabase = createClient()
+      
+      const { error } = await supabase
+        .from('profiles')
+        .update({ is_active: !user.is_active })
+        .eq('id', user.id)
+
+      if (error) throw error
+
+      setUsers(users.map(u => 
+        u.id === user.id ? { ...u, is_active: !u.is_active } : u
+      ))
+    } catch (error) {
+      console.error('Error toggling user status:', error)
+    }
+  }
+
+  const filteredUsers = users.filter(user => {
+    const matchesSearch = 
+      user.full_name.toLowerCase().includes(search.toLowerCase()) ||
+      user.email.toLowerCase().includes(search.toLowerCase())
+    const matchesRole = roleFilter === 'all' || user.role === roleFilter
+    return matchesSearch && matchesRole
+  })
+
+  const columns = [
+    { key: 'email', label: 'Email' },
+    { key: 'full_name', label: 'Name' },
+    {
+      key: 'role',
+      label: 'Role',
+      render: (value: string) => (
+        <span className="inline-block px-3 py-1 rounded-full text-xs font-semibold bg-accent/10 text-accent capitalize">
+          {value}
+        </span>
+      ),
+    },
+    {
+      key: 'is_active',
+      label: 'Status',
+      render: (value: boolean) => (
+        <span className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
+          value ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'
+        }`}>
+          {value ? 'Active' : 'Inactive'}
+        </span>
+      ),
+    },
+    {
+      key: 'created_at',
+      label: 'Joined',
+      render: (value: string) => new Date(value).toLocaleDateString(),
+    },
+  ]
 
   return (
     <main className="w-full min-h-screen flex flex-col">
@@ -111,7 +187,7 @@ export default function UsersPage() {
                 Manage Users
               </h1>
               <p className="text-muted-foreground">
-                {users.length} total users
+                {filteredUsers.length} user{filteredUsers.length !== 1 ? 's' : ''}
               </p>
             </div>
 
@@ -119,22 +195,110 @@ export default function UsersPage() {
               <input
                 type="text"
                 placeholder="Search by name or email..."
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
                 className="input-luxury flex-1 min-w-[200px]"
               />
-              <select className="input-luxury">
-                <option>All Status</option>
-                <option>Active</option>
-                <option>Inactive</option>
+              <select 
+                value={roleFilter}
+                onChange={(e) => setRoleFilter(e.target.value)}
+                className="input-luxury"
+              >
+                <option value="all">All Roles</option>
+                <option value="client">Client</option>
+                <option value="admin">Admin</option>
               </select>
             </div>
 
-            <DataTable
-              columns={columns}
-              data={users}
-              onEdit={handleEdit}
-              onDelete={handleDelete}
-              onView={handleView}
-            />
+            {loading ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground">Loading users...</p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-lg shadow">
+                <table className="w-full">
+                  <thead>
+                    <tr className="border-b">
+                      {columns.map(col => (
+                        <th key={col.key} className="text-left px-6 py-3 font-semibold text-sm">
+                          {col.label}
+                        </th>
+                      ))}
+                      <th className="text-left px-6 py-3 font-semibold text-sm">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {filteredUsers.map(user => (
+                      <tr key={user.id} className="border-b hover:bg-gray-50">
+                        {columns.map(col => (
+                          <td key={col.key} className="px-6 py-4 text-sm">
+                            {col.render ? col.render((user as any)[col.key]) : (user as any)[col.key]}
+                          </td>
+                        ))}
+                        <td className="px-6 py-4 text-sm">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => {
+                                setEditingUser(user)
+                                setNewRole(user.role)
+                              }}
+                              className="px-3 py-1 text-xs bg-blue-100 text-blue-700 rounded hover:bg-blue-200"
+                            >
+                              Change Role
+                            </button>
+                            <button
+                              onClick={() => handleToggleActive(user)}
+                              className="px-3 py-1 text-xs bg-yellow-100 text-yellow-700 rounded hover:bg-yellow-200"
+                            >
+                              {user.is_active ? 'Deactivate' : 'Activate'}
+                            </button>
+                            <button
+                              onClick={() => handleDeleteUser(user)}
+                              className="px-3 py-1 text-xs bg-red-100 text-red-700 rounded hover:bg-red-200"
+                            >
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {editingUser && (
+              <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+                <div className="bg-white rounded-lg p-6 max-w-sm w-full mx-4">
+                  <h2 className="text-xl font-bold mb-4">Change Role for {editingUser.full_name}</h2>
+                  <div className="mb-4">
+                    <label className="block text-sm font-medium mb-2">New Role</label>
+                    <select
+                      value={newRole}
+                      onChange={(e) => setNewRole(e.target.value as 'client' | 'admin')}
+                      className="input-luxury w-full"
+                    >
+                      <option value="client">Client</option>
+                      <option value="admin">Admin</option>
+                    </select>
+                  </div>
+                  <div className="flex gap-2 justify-end">
+                    <button
+                      onClick={() => setEditingUser(null)}
+                      className="px-4 py-2 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      onClick={() => handleChangeRole(editingUser, newRole)}
+                      className="px-4 py-2 text-sm bg-blue-600 text-white rounded hover:bg-blue-700"
+                    >
+                      Update
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       </div>
