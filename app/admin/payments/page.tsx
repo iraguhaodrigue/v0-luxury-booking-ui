@@ -1,3 +1,5 @@
+'use client'
+
 import { Navbar } from '@/components/layouts/navbar'
 import { AdminSidebar } from '@/components/layouts/admin-sidebar'
 import { Footer } from '@/components/layouts/footer'
@@ -81,11 +83,6 @@ const columns = [
     ),
   },
 ]
-
-export const metadata = {
-  title: 'Payment Management | Admin',
-  description: 'Manage all payments',
-}
 
 export default function PaymentsPage() {
   return (
