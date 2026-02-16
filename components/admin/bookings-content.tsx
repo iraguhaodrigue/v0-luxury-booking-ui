@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { DataTable } from '@/components/admin/data-table'
-import { supabase } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/client'
 
 interface BookingData {
   id: number
@@ -60,6 +60,7 @@ export default function BookingsContent() {
   useEffect(() => {
     const fetchBookings = async () => {
       try {
+        const supabase = createClient()
         const { data, error } = await supabase
           .from('bookings')
           .select(`
@@ -112,6 +113,7 @@ export default function BookingsContent() {
 
   const handleDelete = async (booking: any) => {
     try {
+      const supabase = createClient()
       const { error } = await supabase
         .from('bookings')
         .delete()

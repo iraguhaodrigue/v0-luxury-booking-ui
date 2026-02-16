@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { DataTable } from '@/components/admin/data-table'
-import { supabase } from '@/lib/supabase/client'
+import { createClient } from '@/lib/supabase/client'
 
 interface PropertyData {
   id: number
@@ -52,6 +52,7 @@ export default function PropertiesContent() {
   useEffect(() => {
     const fetchProperties = async () => {
       try {
+        const supabase = createClient()
         const { data, error } = await supabase
           .from('properties')
           .select('*')
@@ -76,6 +77,7 @@ export default function PropertiesContent() {
 
   const handleDelete = async (property: any) => {
     try {
+      const supabase = createClient()
       const { error } = await supabase
         .from('properties')
         .delete()
