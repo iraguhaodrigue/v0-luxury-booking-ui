@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { Checkbox } from '@/components/ui/checkbox'
 import { Plus, Pencil, Trash2, ImageIcon, Loader2, Star } from 'lucide-react'
 
 interface Property {
@@ -27,11 +28,27 @@ interface Property {
   image_url: string | null
 }
 
+interface Amenity {
+  id: number
+  name: string
+  description?: string
+}
+
 const PROPERTY_TYPES = ['villa', 'hotel', 'lodge', 'resort', 'apartment']
-const emptyForm = { name: '', type: 'villa', location: '', description: '', star_rating: '5', total_rooms: '10', amenities: '', image_url: '' }
+const emptyForm = { 
+  name: '', 
+  type: 'villa', 
+  location: '', 
+  description: '', 
+  star_rating: '5', 
+  total_rooms: '10', 
+  selected_amenities: [] as number[],
+  image_url: '' 
+}
 
 export default function PropertiesPage() {
   const [items, setItems] = useState<Property[]>([])
+  const [amenities, setAmenities] = useState<Amenity[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -42,53 +59,141 @@ export default function PropertiesPage() {
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [error, setError] = useState('')
+  const supabase = createClient()
+
+  const fetchAmenities = useCallback(async () => {
+    const { data } = await supabase.from('amenities').select('*').order('name')
+    if (data) setAmenities(data)
+  }, [supabase])
 
   const fetchItems = useCallback(async () => {
-    const supabase = createClient()
     const { data } = await supabase.from('properties').select('*').order('created_at', { ascending: false })
     if (data) setItems(data)
     setLoading(false)
-  }, [])
+  }, [supabase])
 
-  useEffect(() => { fetchItems() }, [fetchItems])
+  useEffect(() => { 
+    fetchAmenities()
+    fetchItems() 
+  }, [fetchAmenities, fetchItems])
 
   const openAdd = () => {
-    setEditing(null); setForm(emptyForm); setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true)
+    setEditing(null)
+    setForm(emptyForm)
+    setImageFile(null)
+    setImagePreview(null)
+    setError('')
+    setDialogOpen(true)
   }
 
   const openEdit = (item: Property) => {
     setEditing(item)
-    setForm({ name: item.name, type: item.type, location: item.location, description: item.description || '', star_rating: String(item.star_rating || 5), total_rooms: String(item.total_rooms || 0), amenities: item.amenities || '', image_url: item.image_url || '' })
-    setImageFile(null); setImagePreview(item.image_url || null); setError(''); setDialogOpen(true)
+    const amenity_ids = item.amenities ? item.amenities.split(',').map(a => {
+      const found = amenities.find(am => am.name.toLowerCase() === a.trim().toLowerCase())
+      return found?.id || 0
+    }).filter(id => id > 0) : []
+    setForm({ 
+      name: item.name, 
+      type: item.type, 
+      location: item.location, 
+      description: item.description || '', 
+      star_rating: String(item.star_rating || 5), 
+      total_rooms: String(item.total_rooms || 0), 
+      selected_amenities: amenity_ids,
+      image_url: item.image_url || '' 
+    })
+    setImageFile(null)
+    setImagePreview(item.image_url || null)
+    setError('')
+    setDialogOpen(true)
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)) }
+    if (file) { 
+      setImageFile(file)
+      setImagePreview(URL.createObjectURL(file)) 
+    }
   }
 
-  const handleSave = async () => {
-    if (!form.name || !form.location) { setError('Name and location are required'); return }
-    setSaving(true); setError('')
-    const supabase = createClient()
-    let imageUrl = form.image_url
-    if (imageFile) { const url = await uploadImage(imageFile, 'properties'); if (url) imageUrl = url }
-    const payload = { name: form.name, type: form.type, location: form.location, description: form.description || null, star_rating: parseInt(form.star_rating) || 5, total_rooms: parseInt(form.total_rooms) || 0, amenities: form.amenities || null, image_url: imageUrl || null }
+  const toggleAmenity = (id: number) => {
+    setForm(prev => ({
+      ...prev,
+      selected_amenities: prev.selected_amenities.includes(id)
+        ? prev.selected_amenities.filter(a => a !== id)
+        : [...prev.selected_amenities, id]
+    }))
+  }
 
-    const { error: dbError } = editing
-      ? await supabase.from('properties').update(payload).eq('id', editing.id)
-      : await supabase.from('properties').insert(payload)
+  const handleSave = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!form.name || !form.location) { 
+      setError('Name and location are required')
+      return 
+    }
+    
+    setSaving(true)
+    setError('')
+    
+    try {
+      let imageUrl = form.image_url
+      if (imageFile) { 
+        const url = await uploadImage(imageFile, 'properties')
+        if (url) imageUrl = url 
+      }
 
-    if (dbError) { setError(dbError.message); setSaving(false); return }
-    setSaving(false); setDialogOpen(false); fetchItems()
+      const amenitiesText = form.selected_amenities.length > 0
+        ? amenities.filter(a => form.selected_amenities.includes(a.id)).map(a => a.name).join(', ')
+        : null
+
+      const payload = { 
+        name: form.name, 
+        type: form.type, 
+        location: form.location, 
+        description: form.description || null, 
+        star_rating: parseInt(form.star_rating) || 5, 
+        total_rooms: parseInt(form.total_rooms) || 0, 
+        amenities: amenitiesText, 
+        image_url: imageUrl || null 
+      }
+
+      const { error: dbError } = editing
+        ? await supabase.from('properties').update(payload).eq('id', editing.id)
+        : await supabase.from('properties').insert([payload])
+
+      if (dbError) { 
+        setError(dbError.message)
+        console.error('DB Error:', dbError)
+        return 
+      }
+
+      setSaving(false)
+      setDialogOpen(false)
+      fetchItems()
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred')
+      console.error('Error:', err)
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleDelete = async () => {
     if (!deleting) return
     setSaving(true)
-    const supabase = createClient()
-    await supabase.from('properties').delete().eq('id', deleting.id)
-    setSaving(false); setDeleteOpen(false); setDeleting(null); fetchItems()
+    try {
+      const { error: dbError } = await supabase.from('properties').delete().eq('id', deleting.id)
+      if (dbError) {
+        setError(dbError.message)
+        console.error('Delete error:', dbError)
+        return
+      }
+      setDeleteOpen(false)
+      setDeleting(null)
+      fetchItems()
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -149,33 +254,114 @@ export default function PropertiesPage() {
           </Card>
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
               <DialogHeader><DialogTitle>{editing ? 'Edit Property' : 'Add Property'}</DialogTitle></DialogHeader>
-              <div className="grid gap-4 py-4">
+              <form onSubmit={handleSave} className="grid gap-4 py-4">
                 {error && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">{error}</p>}
-                <div><Label>Property Name *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Luxury Villa Kigali" /></div>
+                
+                <div>
+                  <Label>Property Name *</Label>
+                  <Input 
+                    value={form.name} 
+                    onChange={e => setForm({ ...form, name: e.target.value })} 
+                    placeholder="e.g. Luxury Villa Kigali"
+                    required
+                  />
+                </div>
+
                 <div className="grid grid-cols-2 gap-4">
-                  <div><Label>Type *</Label>
-                    <Select value={form.type} onValueChange={v => setForm({ ...form, type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PROPERTY_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent></Select>
+                  <div>
+                    <Label>Type *</Label>
+                    <Select value={form.type} onValueChange={v => setForm({ ...form, type: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {PROPERTY_TYPES.map(t => (
+                          <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
-                  <div><Label>Star Rating</Label>
-                    <Select value={form.star_rating} onValueChange={v => setForm({ ...form, star_rating: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{[1,2,3,4,5].map(n => <SelectItem key={n} value={String(n)}>{n} Star{n > 1 ? 's' : ''}</SelectItem>)}</SelectContent></Select>
+                  <div>
+                    <Label>Star Rating</Label>
+                    <Select value={form.star_rating} onValueChange={v => setForm({ ...form, star_rating: v })}>
+                      <SelectTrigger><SelectValue /></SelectTrigger>
+                      <SelectContent>
+                        {[1,2,3,4,5].map(n => (
+                          <SelectItem key={n} value={String(n)}>{n} Star{n > 1 ? 's' : ''}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </div>
-                <div><Label>Location *</Label><Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="e.g. Kigali, Rwanda" /></div>
-                <div><Label>Total Rooms</Label><Input type="number" value={form.total_rooms} onChange={e => setForm({ ...form, total_rooms: e.target.value })} /></div>
-                <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} placeholder="Describe the property..." /></div>
-                <div><Label>Amenities</Label><Input value={form.amenities} onChange={e => setForm({ ...form, amenities: e.target.value })} placeholder="Pool, Spa, WiFi, Restaurant..." /></div>
-                <div><Label>Image</Label><Input type="file" accept="image/*" onChange={handleImageChange} />
-                  {imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded border" />}
+
+                <div>
+                  <Label>Location *</Label>
+                  <Input 
+                    value={form.location} 
+                    onChange={e => setForm({ ...form, location: e.target.value })} 
+                    placeholder="e.g. Kigali, Rwanda"
+                    required
+                  />
                 </div>
-              </div>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                <Button onClick={handleSave} disabled={saving || !form.name || !form.location}>
-                  {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editing ? 'Update' : 'Create'}
-                </Button>
-              </DialogFooter>
+
+                <div>
+                  <Label>Total Rooms</Label>
+                  <Input 
+                    type="number" 
+                    value={form.total_rooms} 
+                    onChange={e => setForm({ ...form, total_rooms: e.target.value })} 
+                  />
+                </div>
+
+                <div>
+                  <Label>Description</Label>
+                  <Textarea 
+                    value={form.description} 
+                    onChange={e => setForm({ ...form, description: e.target.value })} 
+                    rows={3} 
+                    placeholder="Describe the property..."
+                  />
+                </div>
+
+                <div>
+                  <Label>Amenities</Label>
+                  <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-muted/20">
+                    {amenities.length === 0 ? (
+                      <p className="col-span-2 text-sm text-muted-foreground">No amenities available. Run the migration SQL first.</p>
+                    ) : (
+                      amenities.map(amenity => (
+                        <div key={amenity.id} className="flex items-center gap-2">
+                          <Checkbox 
+                            id={`amenity-${amenity.id}`}
+                            checked={form.selected_amenities.includes(amenity.id)}
+                            onCheckedChange={() => toggleAmenity(amenity.id)}
+                          />
+                          <Label htmlFor={`amenity-${amenity.id}`} className="cursor-pointer text-sm">{amenity.name}</Label>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <Label>Image</Label>
+                  <Input 
+                    type="file" 
+                    accept="image/*" 
+                    onChange={handleImageChange}
+                  />
+                  {imagePreview && (
+                    <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded border" />
+                  )}
+                </div>
+
+                <DialogFooter>
+                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                  <Button type="submit" disabled={saving || !form.name || !form.location}>
+                    {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editing ? 'Update' : 'Create'}
+                  </Button>
+                </DialogFooter>
+              </form>
             </DialogContent>
           </Dialog>
 
