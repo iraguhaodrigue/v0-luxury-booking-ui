@@ -40,6 +40,7 @@ const emptyForm = {
   property_type: 'villa', 
   location: '', 
   description: '', 
+  base_price_per_night: '50000',
   star_rating: '5', 
   total_rooms: '10', 
   selected_amenities: [] as number[],
@@ -88,7 +89,7 @@ export default function PropertiesPage() {
 
   const openEdit = (item: Property) => {
     setEditing(item)
-    setForm({ name: item.name, property_type: item.property_type, location: item.location, description: item.description || '', star_rating: String(item.star_rating || 5), total_rooms: String(item.total_rooms || 10), selected_amenities: [], image_url: item.image_url || '' })
+    setForm({ name: item.name, property_type: item.property_type, location: item.location, description: item.description || '', base_price_per_night: String(item.base_price_per_night || 50000), star_rating: String(item.star_rating || 5), total_rooms: String(item.total_rooms || 10), selected_amenities: [], image_url: item.image_url || '' })
     setImageFile(null); setImagePreview(item.image_url || null); setError(''); setDialogOpen(true)
   }
 
@@ -111,8 +112,8 @@ export default function PropertiesPage() {
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!form.name || !form.location) { 
-      setError('Name and location are required')
+    if (!form.name || !form.location || !form.base_price_per_night) { 
+      setError('Name, location, and base price are required')
       return 
     }
     
@@ -134,7 +135,8 @@ export default function PropertiesPage() {
         name: form.name, 
         property_type: form.property_type, 
         location: form.location, 
-        description: form.description || null, 
+        description: form.description || null,
+        base_price_per_night: parseFloat(form.base_price_per_night) || 50000,
         star_rating: parseInt(form.star_rating) || 5, 
         total_rooms: parseInt(form.total_rooms) || 0, 
         amenities: amenitiesArray,
@@ -284,6 +286,17 @@ export default function PropertiesPage() {
                     value={form.location} 
                     onChange={e => setForm({ ...form, location: e.target.value })} 
                     placeholder="e.g. Kigali, Rwanda"
+                    required
+                  />
+                </div>
+
+                <div>
+                  <Label>Base Price Per Night (RWF) *</Label>
+                  <Input 
+                    type="number" 
+                    value={form.base_price_per_night} 
+                    onChange={e => setForm({ ...form, base_price_per_night: e.target.value })} 
+                    placeholder="50000"
                     required
                   />
                 </div>
