@@ -24,7 +24,7 @@ interface Car {
 const CAR_STATUSES = ['available', 'booked', 'maintenance', 'retired']
 const TRANSMISSIONS = ['automatic', 'manual']
 const FUEL_TYPES = ['petrol', 'diesel', 'electric', 'hybrid']
-const emptyForm = { make: '', model: '', year: String(new Date().getFullYear()), license_plate: '', price_per_day: '', status: 'available', features: '', capacity: '5', transmission: 'automatic', fuel_type: 'petrol' }
+const emptyForm = { make: '', model: '', year: String(new Date().getFullYear()), license_plate: '', price_per_day: '', status: 'available', features: '[]', capacity: '5', transmission: 'automatic', fuel_type: 'petrol' }
 
 export default function CarsPage() {
   const [items, setItems] = useState<Car[]>([])
@@ -50,7 +50,8 @@ export default function CarsPage() {
   const openAdd = () => { setEditing(null); setForm(emptyForm); setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true) }
   const openEdit = (item: Car) => {
     setEditing(item)
-    setForm({ make: item.make, model: item.model, year: String(item.year), license_plate: item.license_plate, price_per_day: String(item.price_per_day), status: item.status, features: item.features || '', capacity: String(item.capacity), transmission: item.transmission || 'automatic', fuel_type: item.fuel_type || 'petrol' })
+    const featuresStr = Array.isArray(item.features) ? JSON.stringify(item.features) : item.features || '[]'
+    setForm({ make: item.make, model: item.model, year: String(item.year), license_plate: item.license_plate, price_per_day: String(item.price_per_day), status: item.status, features: featuresStr, capacity: String(item.capacity), transmission: item.transmission || 'automatic', fuel_type: item.fuel_type || 'petrol' })
     setImageFile(null); setImagePreview(item.image_url || null); setError(''); setDialogOpen(true)
   }
 
@@ -60,7 +61,13 @@ export default function CarsPage() {
     const supabase = createClient()
     let imageUrl = editing?.image_url || null
     if (imageFile) { const url = await uploadImage(imageFile, 'cars'); if (url) imageUrl = url }
-    const payload = { make: form.make, model: form.model, year: parseInt(form.year), license_plate: form.license_plate, price_per_day: parseFloat(form.price_per_day), status: form.status, features: form.features || null, capacity: parseInt(form.capacity) || 5, transmission: form.transmission, fuel_type: form.fuel_type, image_url: imageUrl }
+    let features = []
+    try {
+      features = form.features ? JSON.parse(form.features) : []
+    } catch (e) {
+      features = form.features ? [form.features] : []
+    }
+    const payload = { make: form.make, model: form.model, year: parseInt(form.year), license_plate: form.license_plate, price_per_day: parseFloat(form.price_per_day), status: form.status, images: features, capacity: parseInt(form.capacity) || 5, transmission: form.transmission, fuel_type: form.fuel_type, image_url: imageUrl }
     const { error: dbError } = editing
       ? await supabase.from('cars').update(payload).eq('id', editing.id)
       : await supabase.from('cars').insert(payload)

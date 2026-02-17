@@ -126,9 +126,9 @@ export default function PropertiesPage() {
         if (url) imageUrl = url 
       }
 
-      const amenitiesText = form.selected_amenities.length > 0
-        ? amenities.filter(a => form.selected_amenities.includes(a.id)).map(a => a.name).join(', ')
-        : null
+      const amenitiesArray = form.selected_amenities.length > 0
+        ? amenities.filter(a => form.selected_amenities.includes(a.id)).map(a => a.name)
+        : []
 
       const payload = { 
         name: form.name, 
@@ -137,7 +137,9 @@ export default function PropertiesPage() {
         description: form.description || null, 
         star_rating: parseInt(form.star_rating) || 5, 
         total_rooms: parseInt(form.total_rooms) || 0, 
-        amenities: amenitiesText, 
+        amenities: amenitiesArray,
+        owner_id: 1,
+        base_price_per_night: parseInt(form.star_rating) * 10000 || 50000,
         image_url: imageUrl || null 
       }
 

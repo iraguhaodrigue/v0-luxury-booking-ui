@@ -36,31 +36,25 @@ export default function UsersPage() {
       setLoading(true)
       const supabase = createClient()
       
+      // Query profiles which are linked to auth.users
       const { data, error } = await supabase
         .from('profiles')
-        .select(`
-          id,
-          full_name,
-          role,
-          is_active,
-          created_at
-        `)
+        .select('*')
         .order('created_at', { ascending: false })
 
       if (error) throw error
 
-      // Get emails from auth.users
-      const { data: { users: authUsers } } = await supabase.auth.admin.listUsers()
-      
-      const enrichedUsers = data?.map(user => {
-        const authUser = authUsers?.find(au => au.id === user.id)
-        return {
-          ...user,
-          email: authUser?.email || 'N/A',
-        }
-      }) || []
+      // Add email from session/auth if available
+      const formattedUsers = data?.map(user => ({
+        id: user.id,
+        email: user.email || 'N/A',
+        full_name: user.full_name || 'No Name',
+        role: user.role || 'client',
+        is_active: user.is_active !== false,
+        created_at: user.created_at
+      })) || []
 
-      setUsers(enrichedUsers)
+      setUsers(formattedUsers)
     } catch (error) {
       console.error('Error fetching users:', error)
     } finally {
