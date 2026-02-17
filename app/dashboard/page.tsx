@@ -6,35 +6,7 @@ import { Footer } from '@/components/layouts/footer'
 import { formatPrice } from '@/lib/utils/currency'
 import { Calendar, MapPin, DollarSign, Star, Heart, TrendingUp } from 'lucide-react'
 
-const recentBookings = [
-  {
-    id: 1,
-    property: 'Kigali Luxury Villa',
-    location: 'Kigali, Rwanda',
-    checkIn: '2025-03-15',
-    checkOut: '2025-03-22',
-    status: 'Confirmed',
-    total: 6800000,
-    image: 'https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=300&q=80',
-  },
-  {
-    id: 2,
-    property: 'Volcanoes National Park Villa',
-    location: 'Musanze, Rwanda',
-    checkIn: '2025-04-10',
-    checkOut: '2025-04-17',
-    status: 'Pending',
-    total: 5100000,
-    image: 'https://images.unsplash.com/photo-1551821440-e5b88667fab0?w=300&q=80',
-  },
-]
-
-const stats = [
-  { label: 'Total Bookings', value: '12', icon: Calendar },
-  { label: 'Total Nights', value: '92', icon: TrendingUp },
-  { label: 'Favorites', value: '8', icon: Heart },
-  { label: 'Avg. Rating', value: '4.8/5', icon: Star },
-]
+// Will be fetched from database
 
 export const metadata = {
   title: 'Dashboard | Rwanda Luxury Hospitality',
@@ -57,8 +29,35 @@ export default async function DashboardPage() {
 
   const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Guest'
 
-  // Calculate total spent in RWF
+  // Fetch real bookings from database for this user
+  const { data: bookingsData } = await supabase
+    .from('bookings')
+    .select('id, check_in_date, check_out_date, status, total_price, rooms(properties(name, image_url, location))')
+    .eq('auth_user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(2)
+
+  const recentBookings = (bookingsData || []).map((b: any) => ({
+    id: b.id,
+    property: b.rooms?.properties?.name || 'Unknown Property',
+    location: b.rooms?.properties?.location || 'Rwanda',
+    checkIn: b.check_in_date,
+    checkOut: b.check_out_date,
+    status: b.status?.charAt(0).toUpperCase() + b.status?.slice(1) || 'Pending',
+    total: b.total_price || 0,
+    image: b.rooms?.properties?.image_url || 'https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=300&q=80',
+  }))
+
+  // Calculate stats
+  const totalBookings = bookingsData?.length || 0
   const totalSpent = recentBookings.reduce((sum, b) => sum + b.total, 0)
+  
+  const stats = [
+    { label: 'Total Bookings', value: String(totalBookings), icon: Calendar },
+    { label: 'Bookings Made', value: String(totalBookings), icon: TrendingUp },
+    { label: 'Total Spent', value: formatPrice(totalSpent, false), icon: DollarSign },
+    { label: 'Member Status', value: 'Active', icon: Star },
+  ]
 
   return (
     <main className="w-full min-h-screen flex flex-col">

@@ -1,11 +1,17 @@
 import Link from 'next/link'
-import { Star, MapPin, Bed, Bath, Users } from 'lucide-react'
+import { Star, MapPin, Users } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/currency'
-import { SAMPLE_PROPERTIES } from '@/lib/constants/rwanda-data'
+import { createClient } from '@/lib/supabase/server'
 
-const villas = SAMPLE_PROPERTIES.filter((p) => p.type === 'villa').slice(0, 3)
-
-export function FeaturedVillas() {
+export async function FeaturedVillas() {
+  const supabase = await createClient()
+  
+  // Fetch real properties from database
+  const { data: villas = [] } = await supabase
+    .from('properties')
+    .select('*')
+    .eq('property_type', 'villa')
+    .limit(3)
   return (
     <section className="py-20 md:py-28 bg-background">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,22 +30,22 @@ export function FeaturedVillas() {
 
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {villas.map((villa) => (
+          {villas.map((villa: any) => (
             <Link key={villa.id} href={`/properties/${villa.id}`}>
               <div className="card-luxury cursor-pointer group overflow-hidden h-full flex flex-col">
                 {/* Image */}
                 <div className="relative h-64 mb-4 overflow-hidden rounded-lg">
                   <img
-                    src={villa.images[0]}
+                    src={villa.image_url || 'https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=300&q=80'}
                     alt={villa.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="absolute top-3 right-3 bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                    {formatPrice(villa.price_per_night, false)}/night
+                    {formatPrice(villa.base_price_per_night || 0, false)}/night
                   </div>
                   <div className="absolute bottom-3 left-3">
                     <span className="inline-block bg-primary/90 text-primary-foreground px-2 py-1 rounded text-xs font-semibold">
-                      Villa
+                      {villa.property_type}
                     </span>
                   </div>
                 </div>
@@ -53,7 +59,7 @@ export function FeaturedVillas() {
                         <Star
                           key={i}
                           className={`w-4 h-4 ${
-                            i < Math.floor(villa.rating)
+                            i < Math.floor(villa.star_rating || 5)
                               ? 'fill-accent text-accent'
                               : 'text-muted'
                           }`}
@@ -61,10 +67,7 @@ export function FeaturedVillas() {
                       ))}
                     </div>
                     <span className="text-sm font-semibold text-foreground">
-                      {villa.rating}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      ({villa.reviews})
+                      {villa.star_rating || 5}
                     </span>
                   </div>
 
@@ -76,20 +79,17 @@ export function FeaturedVillas() {
                   {/* Location */}
                   <div className="flex items-center space-x-1 text-muted-foreground">
                     <MapPin className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-sm">{villa.location}, Rwanda</span>
+                    <span className="text-sm">{villa.location}</span>
                   </div>
 
-                  {/* Capacity and amenities */}
+                  {/* Total Rooms */}
                   <div className="flex items-center space-x-4 text-sm text-muted-foreground py-2">
-                    <div className="flex items-center space-x-1">
-                      <Users className="w-4 h-4" />
-                      <span>Up to {villa.capacity} guests</span>
-                    </div>
+                    <span>{villa.total_rooms} rooms</span>
                   </div>
 
                   {/* Amenities tags */}
                   <div className="flex gap-2 flex-wrap">
-                    {villa.amenities.slice(0, 3).map((amenity, idx) => (
+                    {villa.amenities && Array.isArray(villa.amenities) && villa.amenities.slice(0, 3).map((amenity: string, idx: number) => (
                       <span
                         key={idx}
                         className="text-xs bg-secondary text-foreground px-2 py-1 rounded"

@@ -3,70 +3,49 @@ import { DashboardSidebar } from '@/components/layouts/dashboard-sidebar'
 import { Footer } from '@/components/layouts/footer'
 import { MapPin, Calendar, DollarSign, Download, Eye } from 'lucide-react'
 
-const bookings = [
-  {
-    id: 'BK-001',
-    property: 'Mediterranean Escape',
-    location: 'Santorini, Greece',
-    checkIn: '2025-03-15',
-    checkOut: '2025-03-22',
-    status: 'Confirmed',
-    total: 5950,
-    nights: 7,
-    image: 'https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=300&q=80',
-  },
-  {
-    id: 'BK-002',
-    property: 'Tropical Paradise',
-    location: 'Bali, Indonesia',
-    checkIn: '2025-04-10',
-    checkOut: '2025-04-17',
-    status: 'Pending',
-    total: 4550,
-    nights: 7,
-    image: 'https://images.unsplash.com/photo-1551821440-e5b88667fab0?w=300&q=80',
-  },
-  {
-    id: 'BK-003',
-    property: 'Alpine Luxury Retreat',
-    location: 'Swiss Alps, Switzerland',
-    checkIn: '2025-05-01',
-    checkOut: '2025-05-08',
-    status: 'Confirmed',
-    total: 8400,
-    nights: 7,
-    image: 'https://images.unsplash.com/photo-1631049307038-da8ec40ed52d?w=300&q=80',
-  },
-  {
-    id: 'BK-004',
-    property: 'Coastal Villa Deluxe',
-    location: 'Maldives',
-    checkIn: '2025-02-10',
-    checkOut: '2025-02-17',
-    status: 'Completed',
-    total: 6650,
-    nights: 7,
-    image: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=300&q=80',
-  },
-  {
-    id: 'BK-005',
-    property: 'Manhattan Penthouse',
-    location: 'New York, USA',
-    checkIn: '2024-12-01',
-    checkOut: '2024-12-05',
-    status: 'Completed',
-    total: 3000,
-    nights: 4,
-    image: 'https://images.unsplash.com/photo-1512917774080-9a485dc1d1fb?w=300&q=80',
-  },
-]
+// Will be fetched from database
 
 export const metadata = {
   title: 'My Bookings | Luxury Stays',
   description: 'View and manage all your luxury stay bookings',
 }
 
-export default function BookingsPage() {
+import { createClient } from '@/lib/supabase/server'
+import { redirect } from 'next/navigation'
+
+export default async function BookingsPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  
+  if (!user) {
+    redirect('/auth/login')
+  }
+
+  // Fetch real bookings for the current user
+  const { data: bookingsData } = await supabase
+    .from('bookings')
+    .select('id, check_in_date, check_out_date, status, total_price, rooms(properties(name, image_url, location))')
+    .eq('auth_user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  const bookings = (bookingsData || []).map((b: any) => {
+    const checkIn = new Date(b.check_in_date)
+    const checkOut = new Date(b.check_out_date)
+    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
+    
+    return {
+      id: `BK-${b.id}`,
+      property: b.rooms?.properties?.name || 'Unknown Property',
+      location: b.rooms?.properties?.location || 'Rwanda',
+      checkIn: b.check_in_date,
+      checkOut: b.check_out_date,
+      status: b.status?.charAt(0).toUpperCase() + b.status?.slice(1) || 'Pending',
+      total: b.total_price || 0,
+      nights,
+      image: b.rooms?.properties?.image_url || 'https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=300&q=80',
+    }
+  })
+
   const confirmedCount = bookings.filter((b) => b.status === 'Confirmed').length
   const completedCount = bookings.filter((b) => b.status === 'Completed').length
 
