@@ -19,7 +19,7 @@ import { Plus, Pencil, Trash2, ImageIcon, Loader2, Star } from 'lucide-react'
 interface Property {
   id: number
   name: string
-  type: string
+  property_type: string
   location: string
   description: string | null
   star_rating: number | null
@@ -37,7 +37,7 @@ interface Amenity {
 const PROPERTY_TYPES = ['villa', 'hotel', 'lodge', 'resort', 'apartment']
 const emptyForm = { 
   name: '', 
-  type: 'villa', 
+  property_type: 'villa', 
   location: '', 
   description: '', 
   star_rating: '5', 
@@ -88,24 +88,8 @@ export default function PropertiesPage() {
 
   const openEdit = (item: Property) => {
     setEditing(item)
-    const amenity_ids = item.amenities ? item.amenities.split(',').map(a => {
-      const found = amenities.find(am => am.name.toLowerCase() === a.trim().toLowerCase())
-      return found?.id || 0
-    }).filter(id => id > 0) : []
-    setForm({ 
-      name: item.name, 
-      type: item.type, 
-      location: item.location, 
-      description: item.description || '', 
-      star_rating: String(item.star_rating || 5), 
-      total_rooms: String(item.total_rooms || 0), 
-      selected_amenities: amenity_ids,
-      image_url: item.image_url || '' 
-    })
-    setImageFile(null)
-    setImagePreview(item.image_url || null)
-    setError('')
-    setDialogOpen(true)
+    setForm({ name: item.name, property_type: item.property_type, location: item.location, description: item.description || '', star_rating: String(item.star_rating || 5), total_rooms: String(item.total_rooms || 10), selected_amenities: [], image_url: item.image_url || '' })
+    setImageFile(null); setImagePreview(item.image_url || null); setError(''); setDialogOpen(true)
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -148,7 +132,7 @@ export default function PropertiesPage() {
 
       const payload = { 
         name: form.name, 
-        type: form.type, 
+        property_type: form.property_type, 
         location: form.location, 
         description: form.description || null, 
         star_rating: parseInt(form.star_rating) || 5, 
@@ -234,7 +218,7 @@ export default function PropertiesPage() {
                               : <div className="h-12 w-16 bg-muted rounded flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>}
                           </TableCell>
                           <TableCell className="font-medium">{item.name}</TableCell>
-                          <TableCell><Badge variant="secondary" className="capitalize">{item.type}</Badge></TableCell>
+                          <TableCell><Badge variant="secondary" className="capitalize">{item.property_type}</Badge></TableCell>
                           <TableCell>{item.location}</TableCell>
                           <TableCell><div className="flex items-center gap-1"><Star className="h-4 w-4 fill-amber-400 text-amber-400" />{item.star_rating}</div></TableCell>
                           <TableCell>{item.total_rooms}</TableCell>
@@ -272,7 +256,7 @@ export default function PropertiesPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <Label>Type *</Label>
-                    <Select value={form.type} onValueChange={v => setForm({ ...form, type: v })}>
+                    <Select value={form.property_type} onValueChange={v => setForm({ ...form, property_type: v })}>
                       <SelectTrigger><SelectValue /></SelectTrigger>
                       <SelectContent>
                         {PROPERTY_TYPES.map(t => (

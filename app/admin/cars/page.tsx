@@ -17,14 +17,14 @@ import { Plus, Pencil, Trash2, ImageIcon, Loader2 } from 'lucide-react'
 
 interface Car {
   id: number; make: string; model: string; year: number; license_plate: string
-  daily_rate: number; status: string; features: string | null; seats: number
+  price_per_day: number; status: string; features: string | null; capacity: number
   transmission: string; fuel_type: string; image_url: string | null
 }
 
 const CAR_STATUSES = ['available', 'booked', 'maintenance', 'retired']
 const TRANSMISSIONS = ['automatic', 'manual']
 const FUEL_TYPES = ['petrol', 'diesel', 'electric', 'hybrid']
-const emptyForm = { make: '', model: '', year: String(new Date().getFullYear()), license_plate: '', daily_rate: '', status: 'available', features: '', seats: '5', transmission: 'automatic', fuel_type: 'petrol' }
+const emptyForm = { make: '', model: '', year: String(new Date().getFullYear()), license_plate: '', price_per_day: '', status: 'available', features: '', capacity: '5', transmission: 'automatic', fuel_type: 'petrol' }
 
 export default function CarsPage() {
   const [items, setItems] = useState<Car[]>([])
@@ -50,17 +50,17 @@ export default function CarsPage() {
   const openAdd = () => { setEditing(null); setForm(emptyForm); setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true) }
   const openEdit = (item: Car) => {
     setEditing(item)
-    setForm({ make: item.make, model: item.model, year: String(item.year), license_plate: item.license_plate, daily_rate: String(item.daily_rate), status: item.status, features: item.features || '', seats: String(item.seats), transmission: item.transmission || 'automatic', fuel_type: item.fuel_type || 'petrol' })
+    setForm({ make: item.make, model: item.model, year: String(item.year), license_plate: item.license_plate, price_per_day: String(item.price_per_day), status: item.status, features: item.features || '', capacity: String(item.capacity), transmission: item.transmission || 'automatic', fuel_type: item.fuel_type || 'petrol' })
     setImageFile(null); setImagePreview(item.image_url || null); setError(''); setDialogOpen(true)
   }
 
   const handleSave = async () => {
-    if (!form.make || !form.model || !form.daily_rate || !form.license_plate) { setError('Make, model, license plate, and daily rate are required'); return }
+    if (!form.make || !form.model || !form.price_per_day || !form.license_plate) { setError('Make, model, license plate, and daily rate are required'); return }
     setSaving(true); setError('')
     const supabase = createClient()
     let imageUrl = editing?.image_url || null
     if (imageFile) { const url = await uploadImage(imageFile, 'cars'); if (url) imageUrl = url }
-    const payload = { make: form.make, model: form.model, year: parseInt(form.year), license_plate: form.license_plate, daily_rate: parseFloat(form.daily_rate), status: form.status, features: form.features || null, seats: parseInt(form.seats) || 5, transmission: form.transmission, fuel_type: form.fuel_type, image_url: imageUrl }
+    const payload = { make: form.make, model: form.model, year: parseInt(form.year), license_plate: form.license_plate, price_per_day: parseFloat(form.price_per_day), status: form.status, features: form.features || null, capacity: parseInt(form.capacity) || 5, transmission: form.transmission, fuel_type: form.fuel_type, image_url: imageUrl }
     const { error: dbError } = editing
       ? await supabase.from('cars').update(payload).eq('id', editing.id)
       : await supabase.from('cars').insert(payload)
@@ -92,7 +92,7 @@ export default function CarsPage() {
               {loading ? <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
               : items.length === 0 ? <p className="text-center py-12 text-muted-foreground">No cars yet. Click &quot;Add Car&quot; to add one.</p>
               : <div className="overflow-x-auto"><Table><TableHeader><TableRow>
-                  <TableHead>Image</TableHead><TableHead>Make / Model</TableHead><TableHead>Year</TableHead><TableHead>Plate</TableHead><TableHead>Rate/Day</TableHead><TableHead>Seats</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead>
+                  <TableHead>Image</TableHead><TableHead>Make / Model</TableHead><TableHead>Year</TableHead>                  <TableHead>Plate</TableHead><TableHead>Rate/Day</TableHead><TableHead>Capacity</TableHead><TableHead>Status</TableHead><TableHead className="text-right">Actions</TableHead>
                 </TableRow></TableHeader><TableBody>
                   {items.map(item => (
                     <TableRow key={item.id}>
@@ -100,8 +100,8 @@ export default function CarsPage() {
                       <TableCell className="font-medium">{item.make} {item.model}</TableCell>
                       <TableCell>{item.year}</TableCell>
                       <TableCell><Badge variant="outline">{item.license_plate}</Badge></TableCell>
-                      <TableCell>{fmt(item.daily_rate)}</TableCell>
-                      <TableCell>{item.seats}</TableCell>
+                      <TableCell>{fmt(item.price_per_day)}</TableCell>
+                      <TableCell>{item.capacity}</TableCell>
                       <TableCell><span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold capitalize ${statusColor(item.status)}`}>{item.status}</span></TableCell>
                       <TableCell className="text-right"><div className="flex justify-end gap-2">
                         <Button variant="outline" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
@@ -126,8 +126,8 @@ export default function CarsPage() {
                   <div><Label>License Plate *</Label><Input value={form.license_plate} onChange={e => setForm({ ...form, license_plate: e.target.value })} placeholder="RAD 123A" /></div>
                 </div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div><Label>Daily Rate (RWF) *</Label><Input type="number" value={form.daily_rate} onChange={e => setForm({ ...form, daily_rate: e.target.value })} placeholder="150000" /></div>
-                  <div><Label>Seats</Label><Input type="number" value={form.seats} onChange={e => setForm({ ...form, seats: e.target.value })} /></div>
+                  <div><Label>Daily Rate (RWF) *</Label><Input type="number" value={form.price_per_day} onChange={e => setForm({ ...form, price_per_day: e.target.value })} placeholder="150000" /></div>
+                  <div><Label>Capacity</Label><Input type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: e.target.value })} /></div>
                 </div>
                 <div className="grid grid-cols-3 gap-4">
                   <div><Label>Status</Label><Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{CAR_STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select></div>
@@ -138,7 +138,7 @@ export default function CarsPage() {
                 <div><Label>Image</Label><Input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setImageFile(f); setImagePreview(URL.createObjectURL(f)) } }} />
                   {imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded border" />}</div>
               </div>
-              <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={saving || !form.make || !form.model || !form.daily_rate || !form.license_plate}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editing ? 'Update' : 'Create'}</Button></DialogFooter>
+              <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>              <Button onClick={handleSave} disabled={saving || !form.make || !form.model || !form.price_per_day || !form.license_plate}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editing ? 'Update' : 'Create'}</Button></DialogFooter>
             </DialogContent>
           </Dialog>
           <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
