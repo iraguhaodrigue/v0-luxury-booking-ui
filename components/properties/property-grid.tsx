@@ -1,36 +1,18 @@
-'use client'
-
-import { useState } from 'react'
 import { PropertyCard } from './property-card'
 import { FilterSidebar } from './filter-sidebar'
-import { SAMPLE_PROPERTIES } from '@/lib/constants/rwanda-data'
+import { createClient } from '@/lib/supabase/server'
 
-export function PropertyGrid() {
-  const [filteredProperties, setFilteredProperties] = useState(SAMPLE_PROPERTIES)
-
+export async function PropertyGrid() {
+  const supabase = await createClient()
+  
+  // Fetch all properties from database
+  const { data: properties = [] } = await supabase
+    .from('properties')
+    .select('*')
+    .order('created_at', { ascending: false })
+  
   const handleFiltersChange = (filters: any) => {
-    let filtered = SAMPLE_PROPERTIES
-
-    // Location filter
-    if (filters.location && filters.location !== '') {
-      filtered = filtered.filter((prop) => prop.location === filters.location)
-    }
-
-    // Type filter
-    if (filters.propertyType && filters.propertyType !== '') {
-      filtered = filtered.filter((prop) => prop.type === filters.propertyType)
-    }
-
-    // Price filter
-    if (filters.priceRange) {
-      filtered = filtered.filter(
-        (prop) =>
-          prop.price_per_night >= filters.priceRange[0] &&
-          prop.price_per_night <= filters.priceRange[1]
-      )
-    }
-
-    setFilteredProperties(filtered)
+    // This will be handled client-side in FilterSidebar
   }
 
   return (
@@ -54,27 +36,27 @@ export function PropertyGrid() {
           </div>
 
           {/* Grid */}
-          {filteredProperties.length > 0 ? (
+          {properties.length > 0 ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredProperties.map((property) => (
+              {properties.map((property: any) => (
                 <PropertyCard
                   key={property.id}
                   id={property.id}
                   name={property.name}
                   location={property.location}
-                  price={property.price_per_night}
-                  image={property.images[0]}
-                  rating={property.rating}
-                  reviews={property.reviews}
-                  capacity={property.capacity}
-                  amenities={property.amenities}
+                  price={property.base_price_per_night}
+                  image={property.image_url}
+                  rating={property.star_rating || 5}
+                  reviews={0}
+                  capacity={property.total_rooms || 1}
+                  amenities={property.amenities || []}
                 />
               ))}
             </div>
           ) : (
             <div className="text-center py-16">
               <p className="text-muted-foreground text-lg">
-                No properties found matching your filters.
+                No properties found. Add properties from the admin panel.
               </p>
             </div>
           )}

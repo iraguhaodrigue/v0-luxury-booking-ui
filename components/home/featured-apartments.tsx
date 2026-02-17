@@ -1,11 +1,17 @@
 import Link from 'next/link'
-import { Star, MapPin, Users } from 'lucide-react'
+import { Star, MapPin } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/currency'
-import { SAMPLE_PROPERTIES } from '@/lib/constants/rwanda-data'
+import { createClient } from '@/lib/supabase/server'
 
-const hotels = SAMPLE_PROPERTIES.filter((p) => p.type === 'hotel').slice(0, 3)
-
-export function FeaturedApartments() {
+export async function FeaturedApartments() {
+  const supabase = await createClient()
+  
+  // Fetch hotels from database
+  const { data: hotels = [] } = await supabase
+    .from('properties')
+    .select('*')
+    .eq('property_type', 'hotel')
+    .limit(3)
   return (
     <section className="py-20 md:py-28 bg-secondary">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -24,22 +30,22 @@ export function FeaturedApartments() {
 
         {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-          {hotels.map((hotel) => (
+          {hotels.map((hotel: any) => (
             <Link key={hotel.id} href={`/properties/${hotel.id}`}>
               <div className="card-luxury cursor-pointer group overflow-hidden h-full flex flex-col">
                 {/* Image */}
                 <div className="relative h-64 mb-4 overflow-hidden rounded-lg">
                   <img
-                    src={hotel.images[0]}
+                    src={hotel.image_url || 'https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=300&q=80'}
                     alt={hotel.name}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
                   />
                   <div className="absolute top-3 right-3 bg-accent text-accent-foreground px-3 py-1 rounded-full text-sm font-semibold">
-                    {formatPrice(hotel.price_per_night, false)}/night
+                    {formatPrice(hotel.base_price_per_night || 0, false)}/night
                   </div>
                   <div className="absolute bottom-3 left-3">
                     <span className="inline-block bg-primary/90 text-primary-foreground px-2 py-1 rounded text-xs font-semibold">
-                      Hotel
+                      {hotel.property_type}
                     </span>
                   </div>
                 </div>
@@ -53,7 +59,7 @@ export function FeaturedApartments() {
                         <Star
                           key={i}
                           className={`w-4 h-4 ${
-                            i < Math.floor(hotel.rating)
+                            i < Math.floor(hotel.star_rating || 5)
                               ? 'fill-accent text-accent'
                               : 'text-muted'
                           }`}
@@ -61,10 +67,7 @@ export function FeaturedApartments() {
                       ))}
                     </div>
                     <span className="text-sm font-semibold text-foreground">
-                      {hotel.rating}
-                    </span>
-                    <span className="text-xs text-muted-foreground">
-                      ({hotel.reviews})
+                      {hotel.star_rating || 5}
                     </span>
                   </div>
 
@@ -76,7 +79,7 @@ export function FeaturedApartments() {
                   {/* Location */}
                   <div className="flex items-center space-x-1 text-muted-foreground">
                     <MapPin className="w-4 h-4 flex-shrink-0" />
-                    <span className="text-sm">{hotel.location}, Rwanda</span>
+                    <span className="text-sm">{hotel.location}</span>
                   </div>
 
                   {/* Description */}
@@ -84,15 +87,14 @@ export function FeaturedApartments() {
                     {hotel.description}
                   </p>
 
-                  {/* Capacity */}
-                  <div className="flex items-center space-x-1 text-sm text-muted-foreground py-2">
-                    <Users className="w-4 h-4" />
-                    <span>Up to {hotel.capacity} guests per room</span>
+                  {/* Total Rooms */}
+                  <div className="text-sm text-muted-foreground py-2">
+                    <span>{hotel.total_rooms} rooms available</span>
                   </div>
 
                   {/* Amenities tags */}
                   <div className="flex gap-2 flex-wrap">
-                    {hotel.amenities.slice(0, 3).map((amenity, idx) => (
+                    {hotel.amenities && Array.isArray(hotel.amenities) && hotel.amenities.slice(0, 3).map((amenity: string, idx: number) => (
                       <span
                         key={idx}
                         className="text-xs bg-primary/10 text-primary px-2 py-1 rounded"
