@@ -138,8 +138,6 @@ export default function PropertiesPage() {
         star_rating: parseInt(form.star_rating) || 5, 
         total_rooms: parseInt(form.total_rooms) || 0, 
         amenities: amenitiesArray,
-        owner_id: 1,
-        base_price_per_night: parseInt(form.star_rating) * 10000 || 50000,
         image_url: imageUrl || null 
       }
 
