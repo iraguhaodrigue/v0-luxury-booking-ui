@@ -6,25 +6,7 @@ import { Footer } from '@/components/layouts/footer'
 import { formatPrice } from '@/lib/utils/currency'
 import { Building2, Calendar, Users, DollarSign, TrendingUp, AlertCircle, CheckCircle } from 'lucide-react'
 
-const stats = [
-  { label: 'Rwanda Properties', value: '6', icon: Building2, change: '+2 this month' },
-  { label: 'Active Bookings', value: '23', icon: Calendar, change: '+8 this week' },
-  { label: 'Total Guests', value: '156', icon: Users, change: '+42 this month' },
-  { label: 'Revenue (RWF)', value: formatPrice(245000000, false), icon: DollarSign, change: '+18% vs last month' },
-]
-
-const recentBookings = [
-  { id: 1, guest: 'John Smith', property: 'Kigali Luxury Villa', dates: 'Mar 15-22', amount: formatPrice(6800000, false), status: 'Confirmed' },
-  { id: 2, guest: 'Jane Doe', property: 'Volcanoes National Park', dates: 'Apr 10-17', amount: formatPrice(5100000, false), status: 'Pending' },
-  { id: 3, guest: 'Robert Johnson', property: 'Rubavu Lakeside Villa', dates: 'May 1-8', amount: formatPrice(4200000, false), status: 'Confirmed' },
-  { id: 4, guest: 'Emma Wilson', property: 'Kigali City View Suite', dates: 'Jun 5-12', amount: formatPrice(3850000, false), status: 'Confirmed' },
-]
-
-const alerts = [
-  { id: 1, type: 'urgent', message: 'Rubavu property requires urgent maintenance' },
-  { id: 2, type: 'warning', message: '3 pending payment confirmations for Rwanda bookings' },
-  { id: 3, type: 'success', message: '5-star review received for Kigali Luxury Villa' },
-]
+// Will be populated from database queries
 
 export const metadata = {
   title: 'Admin Dashboard | Rwanda Luxury Hospitality',
@@ -45,6 +27,35 @@ export default async function AdminDashboardPage() {
   }
 
   const adminName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Admin'
+
+  // Fetch real data from database
+  const [{ data: properties }, { data: bookings }, { data: payments }] = await Promise.all([
+    supabase.from('properties').select('id'),
+    supabase.from('bookings').select('id, total_price, status').limit(4).order('created_at', { ascending: false }),
+    supabase.from('payments').select('amount, status').order('created_at', { ascending: false })
+  ])
+
+  const propertyCount = properties?.length || 0
+  const bookingCount = bookings?.length || 0
+  const totalRevenue = (payments || []).reduce((sum, p) => sum + (p.amount || 0), 0)
+  
+  const stats = [
+    { label: 'Rwanda Properties', value: String(propertyCount), icon: Building2, change: '' },
+    { label: 'Active Bookings', value: String(bookingCount), icon: Calendar, change: '' },
+    { label: 'Total Users', value: '0', icon: Users, change: '' },
+    { label: 'Revenue (RWF)', value: formatPrice(totalRevenue || 0, false), icon: DollarSign, change: '' },
+  ]
+
+  const recentBookings = (bookings || []).map((b, i) => ({
+    id: b.id,
+    guest: `Guest ${i + 1}`,
+    property: 'Property',
+    dates: 'Dates',
+    amount: formatPrice(b.total_price || 0, false),
+    status: b.status || 'Pending'
+  }))
+
+  const alerts = []
 
   return (
     <main className="w-full min-h-screen flex flex-col">
