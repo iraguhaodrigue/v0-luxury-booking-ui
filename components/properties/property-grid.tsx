@@ -31,7 +31,7 @@ export async function PropertyGrid() {
               Available Properties
             </h2>
             <p className="text-muted-foreground">
-              Found {filteredProperties.length} properties
+              Found {properties.length} properties
             </p>
           </div>
 

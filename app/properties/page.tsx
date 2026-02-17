@@ -7,7 +7,9 @@ export const metadata = {
   description: 'Explore our curated collection of luxury villas, hotels, and apartments across Rwanda',
 }
 
-export default function PropertiesPage() {
+export const revalidate = 3600 // Revalidate every hour
+
+export default async function PropertiesPage() {
   return (
     <main className="w-full">
       <Navbar />

@@ -5,7 +5,9 @@ import { FeaturedVillas } from '@/components/home/featured-villas'
 import { FeaturedApartments } from '@/components/home/featured-apartments'
 import { ServicesHighlight } from '@/components/home/services-highlight'
 
-export default function Home() {
+export const revalidate = 3600 // Revalidate every hour
+
+export default async function Home() {
   return (
     <main className="w-full">
       <Navbar />
