@@ -11,15 +11,12 @@ export async function updateSession(request: NextRequest) {
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
 
   if (!supabaseUrl || !supabaseAnonKey) {
-    console.warn('[v0] Supabase environment variables not configured.')
-    console.warn('[v0] NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? '✓ set' : '✗ missing')
-    console.warn('[v0] NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? '✓ set' : '✗ missing')
+    // Supabase is not configured - allow request to proceed without auth
     return supabaseResponse
   }
 
   // Validate URL format
   if (!supabaseUrl.startsWith('https://') && !supabaseUrl.startsWith('http://')) {
-    console.warn('[v0] Invalid NEXT_PUBLIC_SUPABASE_URL - must start with https:// or http://')
     return supabaseResponse
   }
 
