@@ -7,14 +7,25 @@ export async function updateSession(request: NextRequest) {
   })
 
   // Check if Supabase credentials are available
-  if (!process.env.NEXT_PUBLIC_SUPABASE_URL || !process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY) {
-    console.warn('[v0] Supabase environment variables not configured. Please add NEXT_PUBLIC_SUPABASE_URL and NEXT_PUBLIC_SUPABASE_ANON_KEY in the Vars section.')
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim()
+  const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY?.trim()
+
+  if (!supabaseUrl || !supabaseAnonKey) {
+    console.warn('[v0] Supabase environment variables not configured.')
+    console.warn('[v0] NEXT_PUBLIC_SUPABASE_URL:', supabaseUrl ? '✓ set' : '✗ missing')
+    console.warn('[v0] NEXT_PUBLIC_SUPABASE_ANON_KEY:', supabaseAnonKey ? '✓ set' : '✗ missing')
+    return supabaseResponse
+  }
+
+  // Validate URL format
+  if (!supabaseUrl.startsWith('https://') && !supabaseUrl.startsWith('http://')) {
+    console.warn('[v0] Invalid NEXT_PUBLIC_SUPABASE_URL - must start with https:// or http://')
     return supabaseResponse
   }
 
   const supabase = createServerClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL,
-    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+    supabaseUrl,
+    supabaseAnonKey,
     {
       cookies: {
         getAll() {
