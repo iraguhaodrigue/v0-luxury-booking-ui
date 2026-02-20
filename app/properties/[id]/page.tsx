@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, use } from 'react'
 import Link from 'next/link'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
@@ -38,8 +38,9 @@ const propertyDataMap = SAMPLE_PROPERTIES.reduce(
   {} as Record<number, any>
 )
 
-export default function PropertyDetailsPage({ params }: { params: { id: string } }) {
-  const propertyId = parseInt(params.id)
+export default function PropertyDetailsPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = use(params)
+  const propertyId = parseInt(id)
   const property = propertyDataMap[propertyId] || propertyDataMap[1]
   
   const [checkIn, setCheckIn] = useState('')

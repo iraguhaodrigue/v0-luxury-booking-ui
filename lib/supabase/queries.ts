@@ -8,7 +8,7 @@ export interface Property {
   location: string
   city: string | null
   country: string | null
-  property_type: 'villa' | 'apartment' | 'penthouse' | 'suite'
+  property_type: 'villa' | 'apartment'
   total_rooms: number | null
   amenities: string[]
   base_price_per_night: number

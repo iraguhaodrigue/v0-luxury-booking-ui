@@ -59,15 +59,7 @@ export function PropertyGrid() {
               {filteredProperties.map((property) => (
                 <PropertyCard
                   key={property.id}
-                  id={property.id}
-                  name={property.name}
-                  location={property.location}
-                  price={property.price_per_night}
-                  image={property.images[0]}
-                  rating={property.rating}
-                  reviews={property.reviews}
-                  capacity={property.capacity}
-                  amenities={property.amenities}
+                  property={property}
                 />
               ))}
             </div>
