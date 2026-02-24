@@ -13,7 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Plus, Pencil, Trash2, Loader2 } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, ImageIcon } from 'lucide-react'
 
 interface Property {
   id: number
@@ -77,7 +77,10 @@ export default function PropertiesPage() {
       base_price_per_night: String(item.base_price_per_night || 0), 
       currency: item.currency || 'USD' 
     })
-    setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true)
+    setImageFile(null); 
+    setImagePreview(item.images && item.images.length > 0 ? item.images[0] : null); 
+    setError(''); 
+    setDialogOpen(true)
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -89,8 +92,11 @@ export default function PropertiesPage() {
     if (!form.name || !form.location || !form.base_price_per_night) { setError('Name, location, and price are required'); return }
     setSaving(true); setError('')
     const supabase = createClient()
-    let imageUrl = null
-    if (imageFile) { const url = await uploadImage(imageFile, 'properties'); if (url) imageUrl = url }
+    let images = editing?.images || []
+    if (imageFile) { 
+      const url = await uploadImage(imageFile, 'properties')
+      if (url) images = [url]
+    }
     const amenitiesArray = form.amenities ? form.amenities.split(',').map(a => a.trim()).filter(a => a) : []
     const payload = { 
       name: form.name, 
@@ -103,7 +109,7 @@ export default function PropertiesPage() {
       amenities: amenitiesArray, 
       base_price_per_night: parseFloat(form.base_price_per_night),
       currency: form.currency,
-      images: imageUrl ? [imageUrl] : [],
+      images: images,
       is_active: true
     }
 
@@ -148,7 +154,7 @@ export default function PropertiesPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Name</TableHead><TableHead>Type</TableHead>
+                        <TableHead>Image</TableHead><TableHead>Name</TableHead><TableHead>Type</TableHead>
                         <TableHead>Location</TableHead><TableHead>Price/Night</TableHead><TableHead>Rooms</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
@@ -156,6 +162,16 @@ export default function PropertiesPage() {
                     <TableBody>
                       {items.map(item => (
                         <TableRow key={item.id}>
+                          <TableCell>
+                            {item.images && item.images.length > 0 && item.images[0] ? (
+                              <img src={item.images[0]} alt={item.name} className="h-12 w-16 object-cover rounded" onError={(e) => {
+                                console.log("[v0] Image failed to load:", item.images[0])
+                                e.currentTarget.style.display = 'none'
+                              }} />
+                            ) : (
+                              <div className="h-12 w-16 bg-muted rounded flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>
+                            )}
+                          </TableCell>
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell><Badge variant="secondary" className="capitalize">{item.property_type}</Badge></TableCell>
                           <TableCell>{item.location}</TableCell>
