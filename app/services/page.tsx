@@ -2,7 +2,8 @@ import Link from 'next/link'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { ServiceCard } from '@/components/services/service-card'
-import { formatPrice } from '@/lib/utils/currency'
+import { createClient } from '@/lib/supabase/server'
+import { Loader2 } from 'lucide-react'
 import { SERVICES } from '@/lib/constants/rwanda-data'
 
 export const metadata = {
@@ -11,7 +12,29 @@ export const metadata = {
     'Enhance your luxury vacation in Rwanda with our exclusive premium services. Airport transfers, private chefs, spa, and more.',
 }
 
-export default function ServicesPage() {
+async function fetchServices() {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('services')
+      .select('*')
+      .eq('is_active', true)
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching services:', error)
+      return SERVICES
+    }
+
+    return data && data.length > 0 ? data : SERVICES
+  } catch (error) {
+    console.error('Error in fetchServices:', error)
+    return SERVICES
+  }
+}
+
+export default async function ServicesPage() {
+  const services = await fetchServices()
   return (
     <main className="w-full">
       <Navbar />

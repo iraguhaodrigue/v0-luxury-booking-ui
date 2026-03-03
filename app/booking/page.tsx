@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, Suspense } from 'react'
+import { useState, Suspense, useEffect } from 'react'
 import Link from 'next/link'
 import { useSearchParams } from 'next/navigation'
 import { Navbar } from '@/components/layouts/navbar'
@@ -10,6 +10,7 @@ import { ServicesSelector } from '@/components/booking/services-selector'
 import { BookingSummary } from '@/components/booking/booking-summary'
 import { formatPrice } from '@/lib/utils/currency'
 import { SAMPLE_PROPERTIES, SERVICES } from '@/lib/constants/rwanda-data'
+import { createClient } from '@/lib/supabase/client'
 
 const bookingSteps = [
   { id: 1, title: 'Dates', description: 'Check-in & Check-out' },
@@ -18,6 +19,14 @@ const bookingSteps = [
   { id: 4, title: 'Review', description: 'Confirm booking' },
   { id: 5, title: 'Payment', description: 'Complete purchase' },
 ]
+
+interface Property {
+  id: number
+  name: string
+  base_price_per_night: number
+  description: string | null
+  images: string[]
+}
 
 function BookingPageContent() {
   const searchParams = useSearchParams()
@@ -31,8 +40,37 @@ function BookingPageContent() {
   const [checkOut, setCheckOut] = useState(initialCheckOut)
   const [guests, setGuests] = useState(initialGuests)
   const [selectedServices, setSelectedServices] = useState<number[]>([])
+  const [property, setProperty] = useState<Property | null>(null)
+  const [loading, setLoading] = useState(true)
 
-  const property = SAMPLE_PROPERTIES.find((p) => p.id === propertyId) || SAMPLE_PROPERTIES[0]
+  useEffect(() => {
+    fetchProperty()
+  }, [propertyId])
+
+  const fetchProperty = async () => {
+    try {
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('properties')
+        .select('*')
+        .eq('id', propertyId)
+        .single()
+
+      if (error || !data) {
+        // Fallback to sample data
+        const sample = SAMPLE_PROPERTIES.find((p) => p.id === propertyId) || SAMPLE_PROPERTIES[0]
+        setProperty(sample as any)
+      } else {
+        setProperty(data)
+      }
+    } catch (error) {
+      console.error('Error fetching property:', error)
+      const sample = SAMPLE_PROPERTIES.find((p) => p.id === propertyId) || SAMPLE_PROPERTIES[0]
+      setProperty(sample as any)
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const calculateNights = () => {
     if (!checkIn || !checkOut) return 0
@@ -42,7 +80,7 @@ function BookingPageContent() {
   }
 
   const nights = calculateNights()
-  const roomTotal = property && nights > 0 ? property.price_per_night * nights : 0
+  const roomTotal = property && nights > 0 ? property.base_price_per_night * nights : 0
 
   const servicesTotal = selectedServices.reduce((sum, serviceId) => {
     const service = SERVICES.find((s) => s.id === serviceId)
