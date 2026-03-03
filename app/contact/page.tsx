@@ -26,22 +26,33 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault()
+    if (!formData.name || !formData.email || !formData.subject || !formData.message) {
+      alert('Please fill in all required fields')
+      return
+    }
     setLoading(true)
 
     try {
+      console.log('[v0] Sending contact message:', formData)
       const response = await fetch('/api/contact', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
       })
 
+      const data = await response.json()
+      console.log('[v0] Contact response:', data)
+
       if (response.ok) {
         setSubmitted(true)
         setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
         setTimeout(() => setSubmitted(false), 5000)
+      } else {
+        alert('Failed to send message. Please try again.')
       }
     } catch (error) {
-      console.error('Error submitting form:', error)
+      console.error('[v0] Error submitting form:', error)
+      alert('Error sending message. Please try again.')
     } finally {
       setLoading(false)
     }

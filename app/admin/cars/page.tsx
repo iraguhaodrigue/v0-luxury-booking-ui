@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { uploadImage } from '@/lib/supabase/storage'
 import { AdminSidebar } from '@/components/layouts/admin-sidebar'
+import { MultiImageUpload } from '@/components/admin/multi-image-upload'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -34,7 +35,7 @@ interface Car {
 const CAR_STATUSES = ['available', 'booked', 'maintenance', 'retired']
 const TRANSMISSIONS = ['automatic', 'manual']
 const FUEL_TYPES = ['petrol', 'diesel', 'electric', 'hybrid']
-const emptyForm = { make: '', model: '', year: String(new Date().getFullYear()), license_plate: '', price_per_day: '', status: 'available', capacity: '5', transmission: 'automatic', fuel_type: 'petrol', color: '' }
+const emptyForm = { make: '', model: '', year: String(new Date().getFullYear()), license_plate: '', price_per_day: '', status: 'available', capacity: '5', transmission: 'automatic', fuel_type: 'petrol', color: '', features: '' }
 
 export default function CarsPage() {
   const [items, setItems] = useState<Car[]>([])
@@ -45,6 +46,7 @@ export default function CarsPage() {
   const [editing, setEditing] = useState<Car | null>(null)
   const [deleting, setDeleting] = useState<Car | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [images, setImages] = useState<string[]>([])
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -57,20 +59,20 @@ export default function CarsPage() {
 
   useEffect(() => { fetchItems() }, [fetchItems])
 
-  const openAdd = () => { setEditing(null); setForm(emptyForm); setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true) }
+  const openAdd = () => { setEditing(null); setForm(emptyForm); setImages([]); setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true) }
   const openEdit = (item: Car) => {
     setEditing(item)
-    setForm({ make: item.make, model: item.model, year: String(item.year), license_plate: item.license_plate, price_per_day: String(item.price_per_day), status: item.status, capacity: String(item.capacity), transmission: item.transmission || 'automatic', fuel_type: item.fuel_type || 'petrol', color: item.color || '' })
-    setImageFile(null); setImagePreview(item.images?.[0] || null); setError(''); setDialogOpen(true)
+    setForm({ make: item.make, model: item.model, year: String(item.year), license_plate: item.license_plate, price_per_day: String(item.price_per_day), status: item.status, capacity: String(item.capacity), transmission: item.transmission || 'automatic', fuel_type: item.fuel_type || 'petrol', color: item.color || '', features: '' })
+    setImages(item.images || []); setImageFile(null); setImagePreview(item.images?.[0] || null); setError(''); setDialogOpen(true)
   }
 
   const handleSave = async () => {
     if (!form.make || !form.model || !form.price_per_day || !form.license_plate) { setError('Make, model, license plate, and daily rate are required'); return }
+    if (images.length === 0) { setError('Please upload at least one image'); return }
     setSaving(true); setError('')
     const supabase = createClient()
-    let images = editing?.images || []
-    if (imageFile) { const url = await uploadImage(imageFile, 'cars'); if (url) images = [url, ...images.slice(0, 4)] }
-    const payload = { make: form.make, model: form.model, year: parseInt(form.year), license_plate: form.license_plate, price_per_day: parseFloat(form.price_per_day), status: form.status, capacity: parseInt(form.capacity) || 5, transmission: form.transmission, fuel_type: form.fuel_type, color: form.color || null, images }
+    const finalImages = [...images]
+    const payload = { make: form.make, model: form.model, year: parseInt(form.year), license_plate: form.license_plate, price_per_day: parseFloat(form.price_per_day), status: form.status, capacity: parseInt(form.capacity) || 5, transmission: form.transmission, fuel_type: form.fuel_type, color: form.color || null, images: finalImages }
     const { error: dbError } = editing
       ? await supabase.from('cars').update(payload).eq('id', editing.id)
       : await supabase.from('cars').insert(payload)
@@ -106,12 +108,12 @@ export default function CarsPage() {
                 </TableRow></TableHeader><TableBody>
                   {items.map(item => (
                     <TableRow key={item.id}>
-                      <TableCell className="py-2 sm:py-4">{item.image_url ? <img src={item.image_url} alt={`${item.make} ${item.model}`} className="h-10 sm:h-12 w-12 sm:w-16 object-cover rounded" /> : <div className="h-10 sm:h-12 w-12 sm:w-16 bg-muted rounded flex items-center justify-center"><ImageIcon className="h-4 sm:h-5 w-4 sm:w-5 text-muted-foreground" /></div>}</TableCell>
+                      <TableCell className="py-2 sm:py-4">{item.images && item.images[0] ? <img src={item.images[0]} alt={`${item.make} ${item.model}`} className="h-10 sm:h-12 w-12 sm:w-16 object-cover rounded" /> : <div className="h-10 sm:h-12 w-12 sm:w-16 bg-muted rounded flex items-center justify-center"><ImageIcon className="h-4 sm:h-5 w-4 sm:w-5 text-muted-foreground" /></div>}</TableCell>
                       <TableCell className="font-medium text-sm">{item.make} {item.model}</TableCell>
                       <TableCell className="text-sm">{item.year}</TableCell>
                       <TableCell><Badge variant="outline" className="text-xs">{item.license_plate}</Badge></TableCell>
                       <TableCell className="text-sm">{fmt(item.price_per_day)}</TableCell>
-                      <TableCell className="text-sm">{item.seats}</TableCell>
+                      <TableCell className="text-sm">{item.capacity}</TableCell>
                       <TableCell><span className={`inline-block px-2 py-1 rounded-full text-xs font-semibold capitalize ${statusColor(item.status)}`}>{item.status}</span></TableCell>
                       <TableCell className="text-right"><div className="flex justify-end gap-1 sm:gap-2">
                         <Button variant="outline" size="sm" onClick={() => openEdit(item)}><Pencil className="h-3 sm:h-4 w-3 sm:w-4" /></Button>
@@ -136,7 +138,10 @@ export default function CarsPage() {
                   <div><Label>License Plate *</Label><Input value={form.license_plate} onChange={e => setForm({ ...form, license_plate: e.target.value })} placeholder="RAD 123A" /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><Label>Daily Rate (RWF) *</Label><Input type="number" value={form.price_per_day} onChange={e => setForm({ ...form, price_per_day: e.target.value })} placeholder="150000" /></div>
                   <div><Label>Capacity (Seats) *</Label><Input type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: e.target.value })} placeholder="5" /></div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div><Label>Color</Label><Input value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} placeholder="e.g. Black, White" /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -144,9 +149,8 @@ export default function CarsPage() {
                   <div><Label>Transmission</Label><Select value={form.transmission} onValueChange={v => setForm({ ...form, transmission: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TRANSMISSIONS.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent></Select></div>
                   <div><Label>Fuel Type</Label><Select value={form.fuel_type} onValueChange={v => setForm({ ...form, fuel_type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{FUEL_TYPES.map(f => <SelectItem key={f} value={f} className="capitalize">{f}</SelectItem>)}</SelectContent></Select></div>
                 </div>
-                <div><Label>Features/Description</Label><Textarea value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} rows={2} placeholder="AC, GPS, Leather seats..." /></div>
-                <div><Label>Image</Label><Input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setImageFile(f); setImagePreview(URL.createObjectURL(f)) } }} />
-                  {imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded border" />}</div>
+                <div><Label>Features/Description</Label><Textarea value={form.features} onChange={e => setForm({ ...form, features: e.target.value })} rows={2} placeholder="AC, GPS, Leather seats..." /></div>
+                <MultiImageUpload onImagesChange={setImages} currentImages={images} maxImages={5} label="Car Images (Select Main + Additional Photos)" />
               </div>
               <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={saving || !form.make || !form.model || !form.price_per_day || !form.license_plate}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editing ? 'Update' : 'Create'}</Button></DialogFooter>
             </DialogContent>

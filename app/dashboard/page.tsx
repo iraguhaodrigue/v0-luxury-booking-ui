@@ -6,36 +6,6 @@ import { Footer } from '@/components/layouts/footer'
 import { formatPrice } from '@/lib/utils/currency'
 import { Calendar, MapPin, DollarSign, Star, Heart, TrendingUp } from 'lucide-react'
 
-const recentBookings = [
-  {
-    id: 1,
-    property: 'Kigali Luxury Villa',
-    location: 'Kigali, Rwanda',
-    checkIn: '2025-03-15',
-    checkOut: '2025-03-22',
-    status: 'Confirmed',
-    total: 6800000,
-    image: 'https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=300&q=80',
-  },
-  {
-    id: 2,
-    property: 'Volcanoes National Park Villa',
-    location: 'Musanze, Rwanda',
-    checkIn: '2025-04-10',
-    checkOut: '2025-04-17',
-    status: 'Pending',
-    total: 5100000,
-    image: 'https://images.unsplash.com/photo-1551821440-e5b88667fab0?w=300&q=80',
-  },
-]
-
-const stats = [
-  { label: 'Total Bookings', value: '12', icon: Calendar },
-  { label: 'Total Nights', value: '92', icon: TrendingUp },
-  { label: 'Favorites', value: '8', icon: Heart },
-  { label: 'Avg. Rating', value: '4.8/5', icon: Star },
-]
-
 export const metadata = {
   title: 'Dashboard | Rwanda Luxury Hospitality',
   description: 'Manage your Rwanda luxury accommodation bookings and account',
@@ -57,8 +27,29 @@ export default async function DashboardPage() {
 
   const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Guest'
 
-  // Calculate total spent in RWF
-  const totalSpent = recentBookings.reduce((sum, b) => sum + b.total, 0)
+  // Fetch user's real bookings from database
+  const { data: bookingsData, error: bookingsError } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('user_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
+  const recentBookings = bookingsData || []
+  const totalBookings = bookingsData?.length || 0
+  const totalNights = bookingsData?.reduce((sum, b) => {
+    const checkIn = new Date(b.check_in_date)
+    const checkOut = new Date(b.check_out_date)
+    return sum + Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
+  }, 0) || 0
+  const totalSpent = bookingsData?.reduce((sum, b) => sum + (parseFloat(b.total_price) || 0), 0) || 0
+
+  const stats = [
+    { label: 'Total Bookings', value: String(totalBookings), icon: Calendar },
+    { label: 'Total Nights', value: String(totalNights), icon: TrendingUp },
+    { label: 'Favorites', value: '0', icon: Heart },
+    { label: 'Amount Spent', value: formatPrice(totalSpent, false), icon: DollarSign },
+  ]
 
   return (
     <main className="w-full min-h-screen flex flex-col">

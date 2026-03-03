@@ -1,88 +1,51 @@
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { CarCard } from '@/components/cars/car-card'
+import { createClient } from '@/lib/supabase/server'
 
-const cars = [
+const SAMPLE_CARS = [
   {
     id: 1,
-    name: 'Tesla Model S',
-    model: 'Electric Sedan',
-    price: 250,
-    image: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&q=80',
-    seats: 5,
+    make: 'Tesla',
+    model: 'Model S',
+    year: 2024,
+    price_per_day: 250,
+    images: ['https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&q=80'],
+    capacity: 5,
     transmission: 'Electric',
-    power: '450 HP',
-    available: true,
+    fuel_type: 'Electric',
+    status: 'available',
     description: 'Luxury electric sedan with autopilot',
   },
-  {
-    id: 2,
-    name: 'Mercedes-Benz S-Class',
-    model: 'Luxury Sedan',
-    price: 280,
-    image: 'https://images.unsplash.com/photo-1552546661-3c1c8e8b5c3c?w=600&q=80',
-    seats: 5,
-    transmission: 'Automatic',
-    power: '500 HP',
-    available: true,
-    description: 'Premium executive sedan with all amenities',
-  },
-  {
-    id: 3,
-    name: 'BMW 7 Series',
-    model: 'Executive Sedan',
-    price: 270,
-    image: 'https://images.unsplash.com/photo-1527893917519-4b9c1d2fe3d0?w=600&q=80',
-    seats: 5,
-    transmission: 'Automatic',
-    power: '530 HP',
-    available: true,
-    description: 'Advanced luxury technology and comfort',
-  },
-  {
-    id: 4,
-    name: 'Porsche 911',
-    model: 'Sports Car',
-    price: 350,
-    image: 'https://images.unsplash.com/photo-1552546661-3c1c8e8b5c3d?w=600&q=80',
-    seats: 2,
-    transmission: 'Automatic',
-    power: '510 HP',
-    available: true,
-    description: 'Iconic sports car with exhilarating performance',
-  },
-  {
-    id: 5,
-    name: 'Rolls-Royce Ghost',
-    model: 'Ultra-Luxury Sedan',
-    price: 400,
-    image: 'https://images.unsplash.com/photo-1552546661-3c1c8e8b5c3e?w=600&q=80',
-    seats: 5,
-    transmission: 'Automatic',
-    power: '563 HP',
-    available: false,
-    description: 'The ultimate luxury driving experience',
-  },
-  {
-    id: 6,
-    name: 'Range Rover',
-    model: 'Luxury SUV',
-    price: 320,
-    image: 'https://images.unsplash.com/photo-1552546661-3c1c8e8b5c3f?w=600&q=80',
-    seats: 7,
-    transmission: 'Automatic',
-    power: '518 HP',
-    available: true,
-    description: 'Premium SUV with off-road capabilities',
-  },
 ]
+
+async function fetchCars() {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('cars')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error) {
+      console.error('Error fetching cars:', error)
+      return SAMPLE_CARS
+    }
+
+    return data && data.length > 0 ? data : SAMPLE_CARS
+  } catch (error) {
+    console.error('Error in fetchCars:', error)
+    return SAMPLE_CARS
+  }
+}
 
 export const metadata = {
   title: 'Car Rental | Luxury Stays',
   description: 'Rent luxury vehicles to complement your premium stay',
 }
 
-export default function CarRentalPage() {
+export default async function CarRentalPage() {
+  const cars = await fetchCars()
   return (
     <main className="w-full">
       <Navbar />

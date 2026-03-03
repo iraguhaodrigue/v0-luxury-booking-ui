@@ -7,29 +7,36 @@ interface PropertyCardProps {
     id: number
     name: string
     location: string
-    price_per_night: number
-    images: string[]
-    rating: number
-    reviews: number
-    capacity: number
+    price_per_night?: number
+    base_price_per_night?: number
+    images: string[] | string
+    rating?: number
+    reviews?: number
+    capacity?: number
     amenities?: string[]
   }
 }
 
 export function PropertyCard({ property }: PropertyCardProps) {
-  const { id, name, location, price_per_night, images, rating, reviews, capacity, amenities = [] } = property
+  if (!property) return null
+  
+  const { id, name, location, images, capacity = 2, amenities = [] } = property
+  const price = property.price_per_night || property.base_price_per_night || 0
+  const rating = property.rating || 4.5
+  const reviews = property.reviews || 0
+  const imageUrl = Array.isArray(images) ? images[0] : images
   
   return (
     <div className="card-luxury group overflow-hidden h-full flex flex-col">
       {/* Image */}
       <Link href={`/properties/${id}`} className="relative h-48 sm:h-56 md:h-64 mb-3 sm:mb-4 overflow-hidden rounded-lg block">
         <img
-          src={images?.[0] || images}
+          src={imageUrl}
           alt={name}
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300"
         />
         <div className="absolute top-2 right-2 sm:top-3 sm:right-3 bg-accent text-accent-foreground px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-semibold">
-          {formatPrice(price_per_night, false)}/night
+          {formatPrice(price, false)}/night
         </div>
         <div className="absolute bottom-2 left-2 sm:bottom-3 sm:left-3">
           <span className="inline-block bg-primary/90 text-primary-foreground px-2 py-1 rounded text-xs font-semibold">
