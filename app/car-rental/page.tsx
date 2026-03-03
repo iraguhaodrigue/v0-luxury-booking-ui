@@ -25,7 +25,6 @@ async function fetchCars() {
     const { data, error } = await supabase
       .from('cars')
       .select('*')
-      .eq('status', 'available')
       .order('created_at', { ascending: false })
 
     if (error) {
