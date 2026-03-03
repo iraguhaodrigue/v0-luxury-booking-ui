@@ -35,13 +35,11 @@ export function FeaturedApartments() {
         if (data && data.length > 0) {
           setApartments(data)
         } else {
-          // Fallback to sample data if no database apartments found
           const sampleApartments = SAMPLE_PROPERTIES.filter((p) => p.type === 'apartment').slice(0, 3)
           setApartments(sampleApartments as unknown as Property[])
         }
       } catch (error) {
         console.error('Error fetching apartments:', error)
-        // Fallback to sample data on error
         const sampleApartments = SAMPLE_PROPERTIES.filter((p) => p.type === 'apartment').slice(0, 3)
         setApartments(sampleApartments as unknown as Property[])
       } finally {
@@ -55,11 +53,8 @@ export function FeaturedApartments() {
   return (
     <section className="py-20 md:py-28 bg-secondary">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        {/* Header */}
         <div className="text-center mb-16">
-          <p className="text-accent text-sm font-semibold mb-2 tracking-widest">
-            LUXURY APARTMENTS
-          </p>
+          <p className="text-accent text-sm font-semibold mb-2 tracking-widest">LUXURY APARTMENTS</p>
           <h2 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-4">
             Featured Apartments
           </h2>
@@ -68,7 +63,6 @@ export function FeaturedApartments() {
           </p>
         </div>
 
-        {/* Grid */}
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {loading ? (
             <div className="col-span-full flex justify-center py-12">
@@ -82,7 +76,6 @@ export function FeaturedApartments() {
             apartments.map((apartment) => (
               <Link key={apartment.id} href={`/properties/${apartment.id}`}>
                 <div className="card-luxury cursor-pointer group overflow-hidden h-full flex flex-col">
-                  {/* Image */}
                   <div className="relative h-64 mb-4 overflow-hidden rounded-lg">
                     <img
                       src={apartment.images?.[0] || 'https://images.unsplash.com/photo-1613395877297-d61eea0f6fcb?w=800&q=80'}
@@ -99,57 +92,39 @@ export function FeaturedApartments() {
                     </div>
                   </div>
 
-                  {/* Content */}
                   <div className="space-y-3 flex-grow flex flex-col">
-                    {/* Rating */}
                     <div className="flex items-center space-x-2">
                       <div className="flex">
                         {[...Array(5)].map((_, i) => (
                           <Star
                             key={i}
-                            className={`w-4 h-4 ${
-                              i < 4
-                                ? 'fill-accent text-accent'
-                                : 'text-muted'
-                            }`}
+                            className={`w-4 h-4 ${i < 4 ? 'fill-accent text-accent' : 'text-muted'}`}
                           />
                         ))}
                       </div>
-                      <span className="text-sm font-semibold text-foreground">
-                        4.8
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        (120+)
-                      </span>
+                      <span className="text-sm font-semibold text-foreground">4.8</span>
+                      <span className="text-xs text-muted-foreground">(120+)</span>
                     </div>
 
-                    {/* Name */}
                     <h3 className="text-xl font-serif font-bold text-foreground line-clamp-2">
                       {apartment.name}
                     </h3>
 
-                    {/* Location */}
                     <div className="flex items-center space-x-1 text-muted-foreground">
                       <MapPin className="w-4 h-4 flex-shrink-0" />
                       <span className="text-sm">{apartment.location}, Rwanda</span>
                     </div>
 
-                    {/* Amenities tags */}
                     <div className="flex gap-2 flex-wrap">
-                      {Array.isArray(apartment.amenities) && apartment.amenities.slice(0, 3).map((amenity, idx) => (
-                        <span
-                          key={idx}
-                          className="text-xs bg-primary/10 text-primary px-2 py-1 rounded"
-                        >
-                          {amenity}
-                        </span>
-                      ))}
+                      {Array.isArray(apartment.amenities) &&
+                        apartment.amenities.slice(0, 3).map((amenity, idx) => (
+                          <span key={idx} className="text-xs bg-primary/10 text-primary px-2 py-1 rounded">
+                            {amenity}
+                          </span>
+                        ))}
                     </div>
 
-                    {/* Button */}
-                    <button className="w-full btn-luxury-ghost text-sm mt-auto">
-                      View Details
-                    </button>
+                    <button className="w-full btn-luxury-ghost text-sm mt-auto">View Details</button>
                   </div>
                 </div>
               </Link>
@@ -157,12 +132,9 @@ export function FeaturedApartments() {
           )}
         </div>
 
-        {/* CTA */}
         <div className="text-center mt-16">
           <Link href="/properties?type=apartment">
-            <button className="btn-luxury-primary text-lg">
-              Explore All Apartments
-            </button>
+            <button className="btn-luxury-primary text-lg">Explore All Apartments</button>
           </Link>
         </div>
       </div>

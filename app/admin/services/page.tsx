@@ -25,7 +25,8 @@ interface Service {
   image_url: string | null
 }
 
-const emptyForm = { name: '', description: '', price_per_day: '', service_type: '', is_active: 'true' }
+const emptyForm = { name: '', description: '', price_per_day: '', service_type: 'spa', is_active: 'true' }
+const SERVICE_TYPES = ['spa', 'butler', 'chef', 'concierge', 'cleaning']
 
 export default function ServicesPage() {
   const [items, setItems] = useState<Service[]>([])
@@ -56,12 +57,12 @@ export default function ServicesPage() {
   }
 
   const handleSave = async () => {
-    if (!form.name || !form.price_per_day) { setError('Name and price are required'); return }
+    if (!form.name || !form.price_per_day || !form.service_type) { setError('Name, service type, and price are required'); return }
     setSaving(true); setError('')
     const supabase = createClient()
     let imageUrl = editing?.image_url || null
     if (imageFile) { const url = await uploadImage(imageFile, 'services'); if (url) imageUrl = url }
-    const payload = { name: form.name, description: form.description || null, price_per_day: parseFloat(form.price_per_day), service_type: form.service_type || null, is_active: form.is_active === 'true', image_url: imageUrl }
+    const payload = { name: form.name, description: form.description || null, price_per_day: parseFloat(form.price_per_day), service_type: form.service_type, is_active: form.is_active === 'true', image_url: imageUrl }
     const { error: dbError } = editing
       ? await supabase.from('services').update(payload).eq('id', editing.id)
       : await supabase.from('services').insert(payload)
@@ -117,7 +118,7 @@ export default function ServicesPage() {
                 {error && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">{error}</p>}
                 <div><Label>Service Name *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Airport Transfer" /></div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div><Label>Service Type</Label><Input value={form.service_type} onChange={e => setForm({ ...form, service_type: e.target.value })} placeholder="e.g. Transport, Spa" /></div>
+                  <div><Label>Service Type *</Label><Select value={form.service_type} onValueChange={v => setForm({ ...form, service_type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{SERVICE_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent></Select></div>
                   <div><Label>Price (RWF) *</Label><Input type="number" value={form.price_per_day} onChange={e => setForm({ ...form, price_per_day: e.target.value })} placeholder="50000" /></div>
                 </div>
                 <div><Label>Active</Label><Select value={form.is_active} onValueChange={v => setForm({ ...form, is_active: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="true">Yes</SelectItem><SelectItem value="false">No</SelectItem></SelectContent></Select></div>
@@ -125,7 +126,7 @@ export default function ServicesPage() {
                 <div><Label>Image</Label><Input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setImageFile(f); setImagePreview(URL.createObjectURL(f)) } }} />
                   {imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded border" />}</div>
               </div>
-              <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={saving || !form.name || !form.price_per_day}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editing ? 'Update' : 'Create'}</Button></DialogFooter>
+              <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={saving || !form.name || !form.price_per_day || !form.service_type}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editing ? 'Update' : 'Create'}</Button></DialogFooter>
             </DialogContent>
           </Dialog>
           <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
