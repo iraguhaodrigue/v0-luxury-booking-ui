@@ -16,11 +16,16 @@ import { Badge } from '@/components/ui/badge'
 import { Plus, Pencil, Trash2, ImageIcon, Loader2, Check, X } from 'lucide-react'
 
 interface Service {
-  id: number; name: string; description: string | null; price: number
-  category: string | null; is_active: boolean; image_url: string | null
+  id: number
+  name: string
+  description: string | null
+  price_per_day: number
+  service_type: string | null
+  is_active: boolean
+  image_url: string | null
 }
 
-const emptyForm = { name: '', description: '', price: '', category: '', is_active: 'true' }
+const emptyForm = { name: '', description: '', price_per_day: '', service_type: '', is_active: 'true' }
 
 export default function ServicesPage() {
   const [items, setItems] = useState<Service[]>([])
@@ -46,17 +51,17 @@ export default function ServicesPage() {
   const openAdd = () => { setEditing(null); setForm(emptyForm); setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true) }
   const openEdit = (item: Service) => {
     setEditing(item)
-    setForm({ name: item.name, description: item.description || '', price: String(item.price), category: item.category || '', is_active: String(item.is_active) })
+    setForm({ name: item.name, description: item.description || '', price_per_day: String(item.price_per_day), service_type: item.service_type || '', is_active: String(item.is_active) })
     setImageFile(null); setImagePreview(item.image_url || null); setError(''); setDialogOpen(true)
   }
 
   const handleSave = async () => {
-    if (!form.name || !form.price) { setError('Name and price are required'); return }
+    if (!form.name || !form.price_per_day) { setError('Name and price are required'); return }
     setSaving(true); setError('')
     const supabase = createClient()
     let imageUrl = editing?.image_url || null
     if (imageFile) { const url = await uploadImage(imageFile, 'services'); if (url) imageUrl = url }
-    const payload = { name: form.name, description: form.description || null, price: parseFloat(form.price), category: form.category || null, is_active: form.is_active === 'true', image_url: imageUrl }
+    const payload = { name: form.name, description: form.description || null, price_per_day: parseFloat(form.price_per_day), service_type: form.service_type || null, is_active: form.is_active === 'true', image_url: imageUrl }
     const { error: dbError } = editing
       ? await supabase.from('services').update(payload).eq('id', editing.id)
       : await supabase.from('services').insert(payload)
@@ -73,32 +78,32 @@ export default function ServicesPage() {
   const fmt = (n: number) => new Intl.NumberFormat('en-RW', { style: 'currency', currency: 'RWF', maximumFractionDigits: 0 }).format(n)
 
   return (
-    <div className="flex min-h-screen bg-background">
+    <div className="flex min-h-screen flex-col md:flex-row bg-background">
       <AdminSidebar />
-      <main className="flex-1 p-6 lg:p-8 overflow-y-auto">
+      <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
         <div className="max-w-7xl mx-auto">
-          <div className="flex items-center justify-between mb-8">
-            <div><h1 className="text-3xl font-serif font-bold text-foreground">Services</h1><p className="text-muted-foreground mt-1">Manage available services</p></div>
-            <Button onClick={openAdd}><Plus className="mr-2 h-4 w-4" /> Add Service</Button>
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between mb-6 sm:mb-8 gap-4 sm:gap-0">
+            <div><h1 className="text-2xl sm:text-3xl font-serif font-bold text-foreground">Services</h1><p className="text-muted-foreground mt-1 text-sm">Manage available services</p></div>
+            <Button onClick={openAdd} className="w-full sm:w-auto"><Plus className="mr-2 h-4 w-4" /> Add Service</Button>
           </div>
           <Card>
-            <CardHeader><CardTitle>All Services ({items.length})</CardTitle></CardHeader>
+            <CardHeader><CardTitle className="text-lg sm:text-xl">All Services ({items.length})</CardTitle></CardHeader>
             <CardContent>
               {loading ? <div className="flex justify-center py-12"><Loader2 className="h-8 w-8 animate-spin text-muted-foreground" /></div>
-              : items.length === 0 ? <p className="text-center py-12 text-muted-foreground">No services yet. Click &quot;Add Service&quot; to create one.</p>
-              : <div className="overflow-x-auto"><Table><TableHeader><TableRow>
-                  <TableHead>Image</TableHead><TableHead>Name</TableHead><TableHead>Category</TableHead><TableHead>Price</TableHead><TableHead>Active</TableHead><TableHead className="text-right">Actions</TableHead>
+              : items.length === 0 ? <p className="text-center py-12 text-muted-foreground text-sm">No services yet. Click &quot;Add Service&quot; to create one.</p>
+              : <div className="overflow-x-auto -mx-6 sm:mx-0"><Table><TableHeader><TableRow>
+                  <TableHead className="text-xs sm:text-sm">Image</TableHead><TableHead className="text-xs sm:text-sm">Name</TableHead><TableHead className="text-xs sm:text-sm">Type</TableHead><TableHead className="text-xs sm:text-sm">Price</TableHead><TableHead className="text-xs sm:text-sm">Active</TableHead><TableHead className="text-right text-xs sm:text-sm">Actions</TableHead>
                 </TableRow></TableHeader><TableBody>
                   {items.map(item => (
                     <TableRow key={item.id}>
-                      <TableCell>{item.image_url ? <img src={item.image_url} alt={item.name} className="h-12 w-16 object-cover rounded" /> : <div className="h-12 w-16 bg-muted rounded flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>}</TableCell>
-                      <TableCell className="font-medium">{item.name}</TableCell>
-                      <TableCell><Badge variant="secondary">{item.category || 'General'}</Badge></TableCell>
-                      <TableCell>{fmt(item.price)}</TableCell>
-                      <TableCell>{item.is_active ? <Check className="h-5 w-5 text-emerald-500" /> : <X className="h-5 w-5 text-destructive" />}</TableCell>
-                      <TableCell className="text-right"><div className="flex justify-end gap-2">
-                        <Button variant="outline" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
-                        <Button variant="destructive" size="sm" onClick={() => { setDeleting(item); setDeleteOpen(true) }}><Trash2 className="h-4 w-4" /></Button>
+                      <TableCell className="py-2 sm:py-4">{item.image_url ? <img src={item.image_url} alt={item.name} className="h-10 sm:h-12 w-12 sm:w-16 object-cover rounded" /> : <div className="h-10 sm:h-12 w-12 sm:w-16 bg-muted rounded flex items-center justify-center"><ImageIcon className="h-4 sm:h-5 w-4 sm:w-5 text-muted-foreground" /></div>}</TableCell>
+                      <TableCell className="font-medium text-sm">{item.name}</TableCell>
+                      <TableCell><Badge variant="secondary" className="text-xs">{item.service_type || 'General'}</Badge></TableCell>
+                      <TableCell className="text-sm">{fmt(item.price_per_day)}</TableCell>
+                      <TableCell>{item.is_active ? <Check className="h-4 sm:h-5 w-4 sm:w-5 text-emerald-500" /> : <X className="h-4 sm:h-5 w-4 sm:w-5 text-destructive" />}</TableCell>
+                      <TableCell className="text-right"><div className="flex justify-end gap-1 sm:gap-2">
+                        <Button variant="outline" size="sm" onClick={() => openEdit(item)}><Pencil className="h-3 sm:h-4 w-3 sm:w-4" /></Button>
+                        <Button variant="destructive" size="sm" onClick={() => { setDeleting(item); setDeleteOpen(true) }}><Trash2 className="h-3 sm:h-4 w-3 sm:w-4" /></Button>
                       </div></TableCell>
                     </TableRow>
                   ))}
@@ -106,21 +111,21 @@ export default function ServicesPage() {
             </CardContent>
           </Card>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+            <DialogContent>
               <DialogHeader><DialogTitle>{editing ? 'Edit Service' : 'Add Service'}</DialogTitle></DialogHeader>
-              <div className="grid gap-4 py-4">
+              <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
                 {error && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">{error}</p>}
                 <div><Label>Service Name *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Airport Transfer" /></div>
-                <div className="grid grid-cols-2 gap-4">
-                  <div><Label>Category</Label><Input value={form.category} onChange={e => setForm({ ...form, category: e.target.value })} placeholder="e.g. Transport, Spa" /></div>
-                  <div><Label>Price (RWF) *</Label><Input type="number" value={form.price} onChange={e => setForm({ ...form, price: e.target.value })} placeholder="50000" /></div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div><Label>Service Type</Label><Input value={form.service_type} onChange={e => setForm({ ...form, service_type: e.target.value })} placeholder="e.g. Transport, Spa" /></div>
+                  <div><Label>Price (RWF) *</Label><Input type="number" value={form.price_per_day} onChange={e => setForm({ ...form, price_per_day: e.target.value })} placeholder="50000" /></div>
                 </div>
                 <div><Label>Active</Label><Select value={form.is_active} onValueChange={v => setForm({ ...form, is_active: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="true">Yes</SelectItem><SelectItem value="false">No</SelectItem></SelectContent></Select></div>
                 <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} placeholder="Describe the service..." /></div>
                 <div><Label>Image</Label><Input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setImageFile(f); setImagePreview(URL.createObjectURL(f)) } }} />
                   {imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded border" />}</div>
               </div>
-              <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={saving || !form.name || !form.price}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editing ? 'Update' : 'Create'}</Button></DialogFooter>
+              <DialogFooter><Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button><Button onClick={handleSave} disabled={saving || !form.name || !form.price_per_day}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editing ? 'Update' : 'Create'}</Button></DialogFooter>
             </DialogContent>
           </Dialog>
           <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
