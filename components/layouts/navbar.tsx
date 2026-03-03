@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Menu, X, Search, User, Heart, LogOut, Shield, LayoutDashboard } from 'lucide-react'
+import { Menu, X, Search, User, Heart, LogOut, Shield, LayoutDashboard, Bell } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
@@ -12,6 +12,7 @@ export function Navbar() {
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -20,6 +21,11 @@ export function Navbar() {
     async function getUser() {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
+      
+      if (user?.user_metadata?.role === 'admin') {
+        fetchUnreadNotifications()
+      }
+      
       setLoading(false)
     }
 
@@ -31,6 +37,22 @@ export function Navbar() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  const fetchUnreadNotifications = async () => {
+    try {
+      const supabase = createClient()
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .is('read_at', null)
+
+      if (!error && count) {
+        setUnreadNotifications(count)
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error)
+    }
+  }
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -87,6 +109,17 @@ export function Navbar() {
                 <button className="p-2 hover:bg-secondary rounded-md transition-colors" aria-label="Favorites">
                   <Heart className="w-5 h-5 text-foreground" />
                 </button>
+
+                {isAdmin && (
+                  <Link href="/admin/notifications" className="relative p-2 hover:bg-secondary rounded-md transition-colors">
+                    <Bell className="w-5 h-5 text-foreground" />
+                    {unreadNotifications > 0 && (
+                      <span className="absolute top-1 right-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                        {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                      </span>
+                    )}
+                  </Link>
+                )}
 
                 {/* User Dropdown */}
                 <div className="relative">

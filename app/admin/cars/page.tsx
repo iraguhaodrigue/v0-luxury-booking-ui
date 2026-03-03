@@ -21,19 +21,20 @@ interface Car {
   model: string
   year: number
   license_plate: string
-  price_per_day: number
-  status: string
-  features: string | null
-  seats: number
+  capacity: number
   transmission: string
   fuel_type: string
-  image_url: string | null
+  price_per_day: number
+  images: string[]
+  status: string
+  color?: string
+  mileage_limit?: number
 }
 
 const CAR_STATUSES = ['available', 'booked', 'maintenance', 'retired']
 const TRANSMISSIONS = ['automatic', 'manual']
 const FUEL_TYPES = ['petrol', 'diesel', 'electric', 'hybrid']
-const emptyForm = { make: '', model: '', year: String(new Date().getFullYear()), license_plate: '', price_per_day: '', status: 'available', features: '', seats: '5', transmission: 'automatic', fuel_type: 'petrol' }
+const emptyForm = { make: '', model: '', year: String(new Date().getFullYear()), license_plate: '', price_per_day: '', status: 'available', capacity: '5', transmission: 'automatic', fuel_type: 'petrol', color: '' }
 
 export default function CarsPage() {
   const [items, setItems] = useState<Car[]>([])
@@ -59,17 +60,17 @@ export default function CarsPage() {
   const openAdd = () => { setEditing(null); setForm(emptyForm); setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true) }
   const openEdit = (item: Car) => {
     setEditing(item)
-    setForm({ make: item.make, model: item.model, year: String(item.year), license_plate: item.license_plate, price_per_day: String(item.price_per_day), status: item.status, features: item.features || '', seats: String(item.seats), transmission: item.transmission || 'automatic', fuel_type: item.fuel_type || 'petrol' })
-    setImageFile(null); setImagePreview(item.image_url || null); setError(''); setDialogOpen(true)
+    setForm({ make: item.make, model: item.model, year: String(item.year), license_plate: item.license_plate, price_per_day: String(item.price_per_day), status: item.status, capacity: String(item.capacity), transmission: item.transmission || 'automatic', fuel_type: item.fuel_type || 'petrol', color: item.color || '' })
+    setImageFile(null); setImagePreview(item.images?.[0] || null); setError(''); setDialogOpen(true)
   }
 
   const handleSave = async () => {
     if (!form.make || !form.model || !form.price_per_day || !form.license_plate) { setError('Make, model, license plate, and daily rate are required'); return }
     setSaving(true); setError('')
     const supabase = createClient()
-    let imageUrl = editing?.image_url || null
-    if (imageFile) { const url = await uploadImage(imageFile, 'cars'); if (url) imageUrl = url }
-    const payload = { make: form.make, model: form.model, year: parseInt(form.year), license_plate: form.license_plate, price_per_day: parseFloat(form.price_per_day), status: form.status, features: form.features || null, seats: parseInt(form.seats) || 5, transmission: form.transmission, fuel_type: form.fuel_type, image_url: imageUrl }
+    let images = editing?.images || []
+    if (imageFile) { const url = await uploadImage(imageFile, 'cars'); if (url) images = [url, ...images.slice(0, 4)] }
+    const payload = { make: form.make, model: form.model, year: parseInt(form.year), license_plate: form.license_plate, price_per_day: parseFloat(form.price_per_day), status: form.status, capacity: parseInt(form.capacity) || 5, transmission: form.transmission, fuel_type: form.fuel_type, color: form.color || null, images }
     const { error: dbError } = editing
       ? await supabase.from('cars').update(payload).eq('id', editing.id)
       : await supabase.from('cars').insert(payload)
@@ -135,15 +136,15 @@ export default function CarsPage() {
                   <div><Label>License Plate *</Label><Input value={form.license_plate} onChange={e => setForm({ ...form, license_plate: e.target.value })} placeholder="RAD 123A" /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div><Label>Daily Rate (RWF) *</Label><Input type="number" value={form.price_per_day} onChange={e => setForm({ ...form, price_per_day: e.target.value })} placeholder="150000" /></div>
-                  <div><Label>Seats</Label><Input type="number" value={form.seats} onChange={e => setForm({ ...form, seats: e.target.value })} /></div>
+                  <div><Label>Capacity (Seats) *</Label><Input type="number" value={form.capacity} onChange={e => setForm({ ...form, capacity: e.target.value })} placeholder="5" /></div>
+                  <div><Label>Color</Label><Input value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} placeholder="e.g. Black, White" /></div>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div><Label>Status</Label><Select value={form.status} onValueChange={v => setForm({ ...form, status: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{CAR_STATUSES.map(s => <SelectItem key={s} value={s} className="capitalize">{s}</SelectItem>)}</SelectContent></Select></div>
                   <div><Label>Transmission</Label><Select value={form.transmission} onValueChange={v => setForm({ ...form, transmission: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{TRANSMISSIONS.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent></Select></div>
                   <div><Label>Fuel Type</Label><Select value={form.fuel_type} onValueChange={v => setForm({ ...form, fuel_type: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{FUEL_TYPES.map(f => <SelectItem key={f} value={f} className="capitalize">{f}</SelectItem>)}</SelectContent></Select></div>
                 </div>
-                <div><Label>Features</Label><Textarea value={form.features} onChange={e => setForm({ ...form, features: e.target.value })} rows={2} placeholder="AC, GPS, Leather seats..." /></div>
+                <div><Label>Features/Description</Label><Textarea value={form.color} onChange={e => setForm({ ...form, color: e.target.value })} rows={2} placeholder="AC, GPS, Leather seats..." /></div>
                 <div><Label>Image</Label><Input type="file" accept="image/*" onChange={e => { const f = e.target.files?.[0]; if (f) { setImageFile(f); setImagePreview(URL.createObjectURL(f)) } }} />
                   {imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded border" />}</div>
               </div>
