@@ -71,16 +71,22 @@ export default async function ServicesPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {SERVICES.map((service) => (
-              <ServiceCard
-                key={service.id}
-                title={service.name}
-                description={service.description}
-                price={service.price}
-                duration={service.duration}
-                icon={service.icon}
-              />
-            ))}
+            {services && services.length > 0 ? (
+              services.map((service: any) => (
+                <ServiceCard
+                  key={service.id}
+                  title={service.name}
+                  description={service.description || 'Premium service'}
+                  price={service.price_per_day || 0}
+                  duration="Per day"
+                  icon={service.service_type}
+                />
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12">
+                <p className="text-muted-foreground">No services available</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -91,7 +97,7 @@ export default async function ServicesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div>
               <h3 className="font-serif font-bold text-2xl text-accent mb-2">
-                {SERVICES.length}+
+                {services && services.length > 0 ? services.length : SERVICES.length}+
               </h3>
               <p className="text-muted-foreground">Premium services available</p>
             </div>
