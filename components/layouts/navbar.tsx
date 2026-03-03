@@ -48,6 +48,7 @@ export function Navbar() {
     { href: '/properties', label: 'Villas & Apartments' },
     { href: '/services', label: 'Services' },
     { href: '/car-rental', label: 'Car Rental' },
+    { href: '/contact', label: 'Contact' },
     { href: '/about', label: 'About' },
   ]
 
