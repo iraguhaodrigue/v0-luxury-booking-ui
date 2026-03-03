@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { Star, MapPin, Users } from 'lucide-react'
+import { Star, MapPin } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/currency'
 import { SAMPLE_PROPERTIES } from '@/lib/constants/rwanda-data'
 import { createClient } from '@/lib/supabase/client'
@@ -52,7 +52,6 @@ export function FeaturedApartments() {
     fetchApartments()
   }, [])
 
-export function FeaturedApartments() {
   return (
     <section className="py-20 md:py-28 bg-secondary">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
