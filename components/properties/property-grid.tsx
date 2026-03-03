@@ -29,7 +29,6 @@ export function PropertyGrid() {
         const { data, error } = await supabase
           .from('properties')
           .select('*')
-          .eq('is_active', true)
 
         if (error) throw error
         if (data && data.length > 0) {

@@ -28,7 +28,6 @@ export function FeaturedVillas() {
           .from('properties')
           .select('*')
           .eq('property_type', 'villa')
-          .eq('is_active', true)
           .limit(3)
 
         if (error) throw error

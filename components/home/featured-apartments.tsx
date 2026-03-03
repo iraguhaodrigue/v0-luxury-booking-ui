@@ -28,7 +28,6 @@ export function FeaturedApartments() {
           .from('properties')
           .select('*')
           .eq('property_type', 'apartment')
-          .eq('is_active', true)
           .limit(3)
 
         if (error) throw error
