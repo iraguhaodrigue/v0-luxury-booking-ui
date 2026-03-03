@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Pencil, Trash2, Loader2, ImageIcon } from 'lucide-react'
 
@@ -194,7 +194,7 @@ export default function PropertiesPage() {
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>{editing ? 'Edit Property' : 'Add Property'}</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editing ? 'Edit Property' : 'Add Property'}</DialogTitle><DialogDescription>{editing ? 'Update property details below' : 'Create a new property listing'}</DialogDescription></DialogHeader>
               <div className="grid gap-4 py-4">
                 {error && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">{error}</p>}
                 <div><Label>Property Name *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Luxury Villa Kigali" /></div>
@@ -232,8 +232,8 @@ export default function PropertiesPage() {
 
           <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
             <DialogContent>
-              <DialogHeader><DialogTitle>Delete Property</DialogTitle></DialogHeader>
-              <p className="text-muted-foreground">Are you sure you want to delete <strong>{deleting?.name}</strong>? This cannot be undone.</p>
+              <DialogHeader><DialogTitle>Delete Property</DialogTitle><DialogDescription>This action cannot be undone</DialogDescription></DialogHeader>
+              <p className="text-muted-foreground">Are you sure you want to delete <strong>{deleting?.name}</strong>?</p>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
                 <Button variant="destructive" onClick={handleDelete} disabled={saving}>

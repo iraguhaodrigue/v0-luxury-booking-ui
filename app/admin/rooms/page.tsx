@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Pencil, Trash2, ImageIcon, Loader2, Check, X } from 'lucide-react'
 
@@ -128,7 +128,7 @@ export default function RoomsPage() {
           </Card>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>{editing ? 'Edit Room' : 'Add Room'}</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editing ? 'Edit Room' : 'Add Room'}</DialogTitle><DialogDescription>{editing ? 'Update room details below' : 'Add a new room to a property'}</DialogDescription></DialogHeader>
               <div className="grid gap-4 py-4">
                 {error && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">{error}</p>}
                 <div><Label>Property *</Label><Select value={form.property_id} onValueChange={v => setForm({ ...form, property_id: v })}><SelectTrigger><SelectValue placeholder="Select property" /></SelectTrigger><SelectContent>{properties.map(p => <SelectItem key={p.id} value={String(p.id)}>{p.name}</SelectItem>)}</SelectContent></Select></div>
@@ -147,7 +147,7 @@ export default function RoomsPage() {
             </DialogContent>
           </Dialog>
           <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-            <DialogContent><DialogHeader><DialogTitle>Delete Room</DialogTitle></DialogHeader>
+            <DialogContent><DialogHeader><DialogTitle>Delete Room</DialogTitle><DialogDescription>This action cannot be undone</DialogDescription></DialogHeader>
               <p className="text-muted-foreground">Are you sure you want to delete <strong>{deleting?.name}</strong>?</p>
               <DialogFooter><Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button><Button variant="destructive" onClick={handleDelete} disabled={saving}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...</> : 'Delete'}</Button></DialogFooter>
             </DialogContent>

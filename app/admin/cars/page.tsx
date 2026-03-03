@@ -11,7 +11,7 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
 import { Plus, Pencil, Trash2, ImageIcon, Loader2 } from 'lucide-react'
 
@@ -123,7 +123,7 @@ export default function CarsPage() {
           </Card>
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
             <DialogContent>
-              <DialogHeader><DialogTitle>{editing ? 'Edit Car' : 'Add Car'}</DialogTitle></DialogHeader>
+              <DialogHeader><DialogTitle>{editing ? 'Edit Car' : 'Add Car'}</DialogTitle><DialogDescription>{editing ? 'Update the vehicle details below' : 'Add a new vehicle to your fleet'}</DialogDescription></DialogHeader>
               <div className="grid gap-4 py-4 max-h-[60vh] overflow-y-auto">
                 {error && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">{error}</p>}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -151,7 +151,7 @@ export default function CarsPage() {
             </DialogContent>
           </Dialog>
           <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
-            <DialogContent><DialogHeader><DialogTitle>Delete Car</DialogTitle></DialogHeader>
+            <DialogContent><DialogHeader><DialogTitle>Delete Car</DialogTitle><DialogDescription>This action cannot be undone</DialogDescription></DialogHeader>
               <p className="text-muted-foreground">Are you sure you want to delete <strong>{deleting?.make} {deleting?.model}</strong>?</p>
               <DialogFooter><Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button><Button variant="destructive" onClick={handleDelete} disabled={saving}>{saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Deleting...</> : 'Delete'}</Button></DialogFooter>
             </DialogContent>
