@@ -11,6 +11,8 @@ import { BookingSummary } from '@/components/booking/booking-summary'
 import { formatPrice } from '@/lib/utils/currency'
 import { SAMPLE_PROPERTIES, SERVICES } from '@/lib/constants/rwanda-data'
 import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Loader2 } from 'lucide-react'
 
 const bookingSteps = [
   { id: 1, title: 'Dates', description: 'Check-in & Check-out' },
@@ -57,16 +59,14 @@ function BookingPageContent() {
         .single()
 
       if (error || !data) {
-        // Fallback to sample data
-        const sample = SAMPLE_PROPERTIES.find((p) => p.id === propertyId) || SAMPLE_PROPERTIES[0]
-        setProperty(sample as any)
+        console.error('[v0] Property not found:', propertyId)
+        setProperty(null) // Don't use fallback
       } else {
         setProperty(data)
       }
     } catch (error) {
-      console.error('Error fetching property:', error)
-      const sample = SAMPLE_PROPERTIES.find((p) => p.id === propertyId) || SAMPLE_PROPERTIES[0]
-      setProperty(sample as any)
+      console.error('[v0] Error fetching property:', error)
+      setProperty(null) // Don't use fallback
     } finally {
       setLoading(false)
     }
@@ -111,6 +111,28 @@ function BookingPageContent() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
+        {/* Loading State */}
+        {loading && (
+          <div className="flex justify-center items-center py-24">
+            <div className="text-center">
+              <Loader2 className="h-12 w-12 animate-spin text-accent mx-auto mb-4" />
+              <p className="text-muted-foreground">Loading property details...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Error State */}
+        {!loading && !property && (
+          <div className="text-center py-24">
+            <h2 className="text-2xl font-serif font-bold text-foreground mb-4">Property Not Found</h2>
+            <p className="text-muted-foreground mb-6">The property you're trying to book doesn't exist or has been removed.</p>
+            <Link href="/properties"><Button>Browse Properties</Button></Link>
+          </div>
+        )}
+
+        {/* Booking Form */}
+        {!loading && property && (
+          <>
         {/* Steps */}
         <BookingSteps steps={bookingSteps} currentStep={currentStep} />
 
@@ -125,7 +147,7 @@ function BookingPageContent() {
                     When would you like to stay?
                   </h2>
                   <p className="text-muted-foreground">
-                    Choose your check-in and check-out dates for {property.name}
+                    Choose your check-in and check-out dates for {property?.name}
                   </p>
                 </div>
 
@@ -387,10 +409,10 @@ function BookingPageContent() {
           <div className="lg:col-span-1">
             <BookingSummary
               property={{
-                name: property.name,
-                location: property.location,
-                pricePerNight: property.price_per_night,
-                image: property.images[0],
+                name: property?.name || 'Property',
+                location: property?.location || 'Rwanda',
+                pricePerNight: property?.base_price_per_night || 0,
+                image: property?.images?.[0] || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200&q=80',
               }}
               checkIn={checkIn}
               checkOut={checkOut}
@@ -401,6 +423,8 @@ function BookingPageContent() {
             />
           </div>
         </div>
+          </>
+        )}
       </div>
 
       <Footer />

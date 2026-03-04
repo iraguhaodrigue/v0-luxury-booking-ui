@@ -18,6 +18,8 @@ export default function ContactPage() {
   })
   const [submitted, setSubmitted] = useState(false)
   const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState(false)
 
   const handleChange = (e: any) => {
     const { name, value } = e.target
@@ -26,8 +28,11 @@ export default function ContactPage() {
 
   const handleSubmit = async (e: any) => {
     e.preventDefault()
+    setError(null)
+    setSuccess(false)
+    
     if (!formData.name || !formData.email || !formData.subject || !formData.message) {
-      alert('Please fill in all required fields')
+      setError('Please fill in all required fields')
       return
     }
     setLoading(true)
@@ -41,18 +46,21 @@ export default function ContactPage() {
       })
 
       const data = await response.json()
-      console.log('[v0] Contact response:', data)
+      console.log('[v0] Contact response:', { status: response.status, data })
 
       if (response.ok) {
+        setSuccess(true)
         setSubmitted(true)
         setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
         setTimeout(() => setSubmitted(false), 5000)
       } else {
-        alert('Failed to send message. Please try again.')
+        setError(data.error || 'Failed to send message. Please try again.')
+        console.error('[v0] Contact error:', data.error)
       }
-    } catch (error) {
+    } catch (error: any) {
+      const errorMessage = error?.message || 'Network error. Please check your connection and try again.'
       console.error('[v0] Error submitting form:', error)
-      alert('Error sending message. Please try again.')
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }
@@ -149,7 +157,13 @@ export default function ContactPage() {
 
                 {submitted && (
                   <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-700">Thank you! We've received your message and will respond shortly.</p>
+                    <p className="text-green-700 font-medium">Success! We've received your message and will respond shortly.</p>
+                  </div>
+                )}
+
+                {error && (
+                  <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+                    <p className="text-red-700 font-medium">{error}</p>
                   </div>
                 )}
 

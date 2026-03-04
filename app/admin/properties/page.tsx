@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { uploadImage } from '@/lib/supabase/storage'
 import { AdminSidebar } from '@/components/layouts/admin-sidebar'
+import { MultiImageUpload } from '@/components/admin/multi-image-upload'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -46,6 +47,7 @@ export default function PropertiesPage() {
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [images, setImages] = useState<string[]>([])
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -60,7 +62,7 @@ export default function PropertiesPage() {
   useEffect(() => { fetchItems() }, [fetchItems])
 
   const openAdd = () => {
-    setEditing(null); setForm(emptyForm); setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true)
+    setEditing(null); setForm(emptyForm); setImages([]); setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true)
   }
 
   const openEdit = (item: Property) => {
@@ -77,6 +79,7 @@ export default function PropertiesPage() {
       base_price_per_night: String(item.base_price_per_night || 0), 
       currency: item.currency || 'USD' 
     })
+    setImages(item.images || [])
     setImageFile(null); 
     setImagePreview(item.images && item.images.length > 0 ? item.images[0] : null); 
     setError(''); 
@@ -90,13 +93,10 @@ export default function PropertiesPage() {
 
   const handleSave = async () => {
     if (!form.name || !form.location || !form.base_price_per_night) { setError('Name, location, and price are required'); return }
+    if (images.length === 0) { setError('Please upload at least one image'); return }
     setSaving(true); setError('')
     const supabase = createClient()
-    let images = editing?.images || []
-    if (imageFile) { 
-      const url = await uploadImage(imageFile, 'properties')
-      if (url) images = [url]
-    }
+    const finalImages = [...images]
     const amenitiesArray = form.amenities ? form.amenities.split(',').map(a => a.trim()).filter(a => a) : []
     const payload = { 
       name: form.name, 
@@ -217,9 +217,7 @@ export default function PropertiesPage() {
                 </div>
                 <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} placeholder="Describe the property..." /></div>
                 <div><Label>Amenities</Label><Input value={form.amenities} onChange={e => setForm({ ...form, amenities: e.target.value })} placeholder="Pool, Spa, WiFi, Restaurant..." /></div>
-                <div><Label>Image</Label><Input type="file" accept="image/*" onChange={handleImageChange} />
-                  {imagePreview && <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded border" />}
-                </div>
+                <MultiImageUpload onImagesChange={setImages} currentImages={images} maxImages={5} label="Property Images (Main + Additional Photos)" />
               </div>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
