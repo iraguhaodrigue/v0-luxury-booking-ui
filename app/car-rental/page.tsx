@@ -3,22 +3,6 @@ import { Footer } from '@/components/layouts/footer'
 import { CarCard } from '@/components/cars/car-card'
 import { createClient } from '@/lib/supabase/server'
 
-const SAMPLE_CARS = [
-  {
-    id: 1,
-    make: 'Tesla',
-    model: 'Model S',
-    year: 2024,
-    price_per_day: 250,
-    images: ['https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&q=80'],
-    capacity: 5,
-    transmission: 'Electric',
-    fuel_type: 'Electric',
-    status: 'available',
-    description: 'Luxury electric sedan with autopilot',
-  },
-]
-
 async function fetchCars() {
   try {
     const supabase = await createClient()
@@ -28,14 +12,14 @@ async function fetchCars() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching cars:', error)
-      return SAMPLE_CARS
+      console.error('[v0] Error fetching cars:', error.message)
+      return []
     }
 
-    return data && data.length > 0 ? data : SAMPLE_CARS
+    return data && data.length > 0 ? data : []
   } catch (error) {
-    console.error('Error in fetchCars:', error)
-    return SAMPLE_CARS
+    console.error('[v0] Error in fetchCars:', error)
+    return []
   }
 }
 
@@ -87,11 +71,17 @@ export default async function CarRentalPage() {
           </div>
 
           {/* Cars Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {cars.map((car) => (
-              <CarCard key={car.id} {...car} />
-            ))}
-          </div>
+          {cars && cars.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {cars.map((car) => (
+                <CarCard key={car.id} {...car} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <p className="text-lg text-muted-foreground">No cars available at this time. Please check back soon.</p>
+            </div>
+          )}
         </div>
       </section>
 

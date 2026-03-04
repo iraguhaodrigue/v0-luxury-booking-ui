@@ -4,7 +4,6 @@ import Link from 'next/link'
 import { useEffect, useState } from 'react'
 import { Star, MapPin } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/currency'
-import { SAMPLE_PROPERTIES } from '@/lib/constants/rwanda-data'
 import { createClient } from '@/lib/supabase/client'
 
 interface Property {
@@ -34,13 +33,12 @@ export function FeaturedApartments() {
         if (data && data.length > 0) {
           setApartments(data)
         } else {
-          const sampleApartments = SAMPLE_PROPERTIES.filter((p) => p.type === 'apartment').slice(0, 3)
-          setApartments(sampleApartments as unknown as Property[])
+          console.log('[v0] No apartments found in database')
+          setApartments([])
         }
       } catch (error) {
-        console.error('Error fetching apartments:', error)
-        const sampleApartments = SAMPLE_PROPERTIES.filter((p) => p.type === 'apartment').slice(0, 3)
-        setApartments(sampleApartments as unknown as Property[])
+        console.error('[v0] Error fetching apartments:', error)
+        setApartments([])
       } finally {
         setLoading(false)
       }
@@ -73,7 +71,7 @@ export function FeaturedApartments() {
             </div>
           ) : (
             apartments.map((apartment) => (
-              <Link key={apartment.id} href={`/properties/${apartment.id}`}>
+              <Link key={apartment.id} href={`/property/${apartment.id}`}>
                 <div className="card-luxury cursor-pointer group overflow-hidden h-full flex flex-col">
                   <div className="relative h-64 mb-4 overflow-hidden rounded-lg">
                     <img

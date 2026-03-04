@@ -29,7 +29,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
   return (
     <div className="card-luxury group overflow-hidden h-full flex flex-col">
       {/* Image */}
-      <Link href={`/properties/${id}`} className="relative h-48 sm:h-56 md:h-64 mb-3 sm:mb-4 overflow-hidden rounded-lg block">
+      <Link href={`/property/${id}`} className="relative h-48 sm:h-56 md:h-64 mb-3 sm:mb-4 overflow-hidden rounded-lg block">
         <img
           src={imageUrl}
           alt={name}
