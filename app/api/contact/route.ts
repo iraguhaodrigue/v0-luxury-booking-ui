@@ -6,6 +6,7 @@ export async function POST(request: NextRequest) {
     const { name, email, phone, subject, message } = await request.json()
     console.log('[v0] Contact form received:', { name, email, subject })
 
+    // Validate required fields
     if (!name || !email || !message) {
       return NextResponse.json(
         { error: 'Name, email, and message are required' },
@@ -13,29 +14,52 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      return NextResponse.json(
+        { error: 'Please provide a valid email address' },
+        { status: 400 }
+      )
+    }
+
     const supabase = await createClient()
 
     // Insert into messages table
-    const { error: insertError } = await supabase
+    const { data, error: insertError } = await supabase
       .from('messages')
       .insert({
-        name: name,
-        email: email,
-        message: `Subject: ${subject || 'No subject'}\nPhone: ${phone || 'Not provided'}\n\n${message}`,
+        name: name.trim(),
+        email: email.trim(),
+        message: `Subject: ${subject || 'No subject'}\nPhone: ${phone || 'Not provided'}\n\n${message.trim()}`,
       })
+      .select()
 
     if (insertError) {
-      console.error('[v0] Insert error:', insertError.message)
+      console.error('[v0] Insert error:', insertError.message, insertError.code)
+      
+      // Provide specific error messages
+      if (insertError.message.includes('relation "public.messages" does not exist')) {
+        return NextResponse.json(
+          { error: 'Database table not initialized. Please contact support.' },
+          { status: 503 }
+        )
+      }
+      
       return NextResponse.json(
         { error: `Failed to save message: ${insertError.message}` },
         { status: 500 }
       )
     }
 
-    console.log('[v0] Contact message saved successfully:', { email, name })
+    console.log('[v0] Contact message saved successfully:', { email, name, id: data?.[0]?.id })
 
     return NextResponse.json(
-      { message: 'Thank you for your message. We will respond shortly.' },
+      { 
+        success: true,
+        message: 'Thank you for your message. We will respond shortly.',
+        messageId: data?.[0]?.id
+      },
       { status: 200 }
     )
   } catch (error: any) {

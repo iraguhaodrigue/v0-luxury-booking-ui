@@ -1,4 +1,7 @@
+'use client'
+
 import { Users, Zap, Gauge } from 'lucide-react'
+import { useRouter } from 'next/navigation'
 
 interface CarCardProps {
   id: number
@@ -19,6 +22,10 @@ interface CarCardProps {
 }
 
 export function CarCard(car: CarCardProps) {
+  const router = useRouter()
+
+  if (!car || !car.id) return null
+
   const {
     id,
     make = 'Unknown',
@@ -48,8 +55,20 @@ export function CarCard(car: CarCardProps) {
   const finalPrice = price_per_day || price || 0
   const finalCapacity = capacity || seats || 5
 
+  const handleCardClick = () => {
+    router.push(`/car/${id}`)
+  }
+
+  const handleBookClick = (e: React.MouseEvent) => {
+    e.stopPropagation()
+    router.push(`/booking?type=car&id=${id}`)
+  }
+
   return (
-    <div className="card-luxury group overflow-hidden h-full flex flex-col">
+    <div 
+      className="card-luxury group overflow-hidden h-full flex flex-col cursor-pointer hover:shadow-luxury-lg transition-shadow duration-300"
+      onClick={handleCardClick}
+    >
       {/* Image */}
       <div className="relative h-56 mb-4 overflow-hidden rounded-lg bg-muted">
         {imageUrl ? (
@@ -120,6 +139,7 @@ export function CarCard(car: CarCardProps) {
             <span className="text-sm text-muted-foreground">/day</span>
           </div>
           <button
+            onClick={handleBookClick}
             disabled={!available}
             className={`w-full py-3 rounded-md font-semibold transition-all duration-300 ${
               available
@@ -127,11 +147,10 @@ export function CarCard(car: CarCardProps) {
                 : 'bg-muted text-muted-foreground cursor-not-allowed'
             }`}
           >
-            {available ? 'Add to Booking' : 'Not Available'}
+            {available ? 'Book Now' : 'Not Available'}
           </button>
         </div>
       </div>
     </div>
   )
 }
-
