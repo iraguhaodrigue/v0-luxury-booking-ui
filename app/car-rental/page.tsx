@@ -3,6 +3,7 @@ import { Footer } from '@/components/layouts/footer'
 import { CarCard } from '@/components/cars/car-card'
 import { createClient } from '@/lib/supabase/server'
 import { logger } from '@/lib/utils/logger'
+import { querySelectors } from '@/lib/utils/query-optimizations'
 
 async function fetchCars() {
   try {
@@ -10,7 +11,8 @@ async function fetchCars() {
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('cars')
-      .select('*')
+      .select(querySelectors.carsListing)
+      .eq('status', 'available')
       .order('created_at', { ascending: false })
 
     if (error) {

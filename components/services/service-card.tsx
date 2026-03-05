@@ -1,8 +1,9 @@
 import { ReactNode } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { formatPrice } from '@/lib/utils/currency'
 
 interface ServiceCardProps {
+  id?: number | string
   icon?: ReactNode
   title: string
   description: string
@@ -13,6 +14,7 @@ interface ServiceCardProps {
 }
 
 export function ServiceCard({
+  id,
   icon,
   title,
   description,
@@ -21,6 +23,14 @@ export function ServiceCard({
   duration,
   image,
 }: ServiceCardProps) {
+  const router = useRouter()
+
+  const handleBooking = () => {
+    if (id) {
+      router.push(`/booking?type=service&id=${id}`)
+    }
+  }
+
   return (
     <div className="card-luxury h-full flex flex-col group overflow-hidden">
       {/* Image or Icon Background */}
@@ -69,8 +79,11 @@ export function ServiceCard({
             <p className="text-xs text-muted-foreground">{duration}</p>
           </div>
         </div>
-        <button className="w-full btn-luxury-ghost text-sm">
-          Learn More
+        <button
+          onClick={handleBooking}
+          className="w-full bg-accent text-accent-foreground hover:bg-accent/90 px-4 py-2 rounded-lg font-semibold transition-all duration-300 shadow-luxury hover:shadow-luxury-md"
+        >
+          Book Now
         </button>
       </div>
     </div>

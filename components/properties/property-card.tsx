@@ -1,4 +1,7 @@
+'use client'
+
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Star, MapPin, Users } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/currency'
 
@@ -18,6 +21,8 @@ interface PropertyCardProps {
 }
 
 export function PropertyCard({ property }: PropertyCardProps) {
+  const router = useRouter()
+
   if (!property) return null
   
   const { id, name, location, images, capacity = 2, amenities = [] } = property
@@ -25,6 +30,12 @@ export function PropertyCard({ property }: PropertyCardProps) {
   const rating = property.rating || 4.5
   const reviews = property.reviews || 0
   const imageUrl = Array.isArray(images) ? images[0] : images
+
+  const handleBooking = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    router.push(`/booking?type=property&id=${id}`)
+  }
   
   return (
     <div className="card-luxury group overflow-hidden h-full flex flex-col">
@@ -102,11 +113,17 @@ export function PropertyCard({ property }: PropertyCardProps) {
           </div>
         )}
 
-        {/* Button */}
-        <Link href={`/properties/${id}`} className="w-full btn-luxury-ghost text-xs sm:text-sm mt-auto block">
-          View Details
-        </Link>
+        {/* Buttons */}
+        <div className="flex gap-2 mt-auto pt-3">
+          <Link href={`/properties/${id}`} className="flex-1 btn-luxury-ghost text-xs sm:text-sm">
+            View Details
+          </Link>
+          <button onClick={handleBooking} className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90 px-3 py-2 rounded-lg font-semibold transition-all duration-300 text-xs sm:text-sm">
+            Book Now
+          </button>
+        </div>
       </div>
     </div>
   )
 }
+

@@ -43,9 +43,12 @@ export async function POST(request: NextRequest) {
       
       // Provide specific error messages
       if (insertError.message.includes('relation "public.messages" does not exist')) {
-        logger.warn('Messages table does not exist')
+        logger.warn('Messages table does not exist - need to run migration')
         return NextResponse.json(
-          { error: 'Database table not initialized. Please contact support.' },
+          { 
+            error: 'Database table not initialized. Please contact support.',
+            debug: 'Run migration: supabase/migrations/006_create_messages_table.sql'
+          },
           { status: 503 }
         )
       }

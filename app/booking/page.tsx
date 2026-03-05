@@ -10,10 +10,11 @@ import { ServicesSelector } from '@/components/booking/services-selector'
 import { BookingSummary } from '@/components/booking/booking-summary'
 import { formatPrice } from '@/lib/utils/currency'
 import { logger } from '@/lib/utils/logger'
-import { SAMPLE_PROPERTIES, SERVICES } from '@/lib/constants/rwanda-data'
+import { SERVICES } from '@/lib/constants/rwanda-data'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Loader2 } from 'lucide-react'
+import { querySelectors } from '@/lib/utils/query-optimizations'
 
 const bookingSteps = [
   { id: 1, title: 'Dates', description: 'Check-in & Check-out' },
@@ -23,53 +24,80 @@ const bookingSteps = [
   { id: 5, title: 'Payment', description: 'Complete purchase' },
 ]
 
-interface Property {
-  id: number
+interface BookableItem {
+  id: number | string
   name: string
-  base_price_per_night: number
-  description: string | null
-  images: string[]
+  description?: string | null
+  images?: string[]
+  image?: string
+  base_price_per_night?: number
+  price_per_day?: number
+  location?: string
+  capacity?: number
+  seats?: number
+  transmission?: string
+  fuel_type?: string
+  make?: string
+  model?: string
 }
 
 function BookingPageContent() {
   const searchParams = useSearchParams()
-  const propertyId = parseInt(searchParams.get('property') || '1')
-  const initialCheckIn = searchParams.get('checkIn') || ''
-  const initialCheckOut = searchParams.get('checkOut') || ''
-  const initialGuests = searchParams.get('guests') || '2'
+  const type = searchParams.get('type') || 'property' // property, car, service
+  const id = searchParams.get('id')
 
   const [currentStep, setCurrentStep] = useState(1)
-  const [checkIn, setCheckIn] = useState(initialCheckIn)
-  const [checkOut, setCheckOut] = useState(initialCheckOut)
-  const [guests, setGuests] = useState(initialGuests)
+  const [checkIn, setCheckIn] = useState('')
+  const [checkOut, setCheckOut] = useState('')
+  const [guests, setGuests] = useState('2')
   const [selectedServices, setSelectedServices] = useState<number[]>([])
-  const [property, setProperty] = useState<Property | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [item, setItem] = useState<BookableItem | null>(null)
+  const [loading, setLoading] = useState(!id) // Only load if id is provided
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    fetchProperty()
-  }, [propertyId])
+    if (id) {
+      fetchItem()
+    }
+  }, [id, type])
 
-  const fetchProperty = async () => {
+  const fetchItem = async () => {
     try {
-      logger.info(`Fetching property: ${propertyId}`)
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('properties')
-        .select('*')
-        .eq('id', propertyId)
-        .single()
-
-      if (error || !data) {
-        logger.warn(`Property not found: ${propertyId}`)
-        setProperty(null)
-      } else {
-        logger.success(`Property loaded: ${data.name}`)
-        setProperty(data)
+      if (!id) {
+        setError('No item selected')
+        setLoading(false)
+        return
       }
-    } catch (error) {
-      logger.error('Error fetching property', error)
-      setProperty(null)
+
+      logger.info(`Fetching ${type} with id: ${id}`)
+      const supabase = createClient()
+
+      let query
+
+      if (type === 'car') {
+        query = supabase.from('cars').select('id,make,model,year,price_per_day,capacity,transmission,fuel_type,images,description').eq('id', id)
+      } else if (type === 'service') {
+        query = supabase.from('services').select('id,name,price_per_day,description').eq('id', id)
+      } else {
+        // default to property
+        query = supabase.from('properties').select('id,name,base_price_per_night,description,images,location').eq('id', id)
+      }
+
+      const { data, error: fetchError } = await query.single()
+
+      if (fetchError || !data) {
+        logger.warn(`${type} not found: ${id}`)
+        setError(`${type} not found`)
+        setItem(null)
+      } else {
+        logger.success(`${type} loaded: ${data.name || data.make}`)
+        setItem(data as BookableItem)
+        setError(null)
+      }
+    } catch (err) {
+      logger.error(`Error fetching ${type}`, err)
+      setError(`Failed to load ${type}`)
+      setItem(null)
     } finally {
       setLoading(false)
     }
@@ -83,11 +111,22 @@ function BookingPageContent() {
   }
 
   const nights = calculateNights()
-  const roomTotal = property && nights > 0 ? property.base_price_per_night * nights : 0
+
+  const getItemPrice = () => {
+    if (!item) return 0
+    if (type === 'property' && item.base_price_per_night) {
+      return item.base_price_per_night * nights
+    } else if ((type === 'car' || type === 'service') && item.price_per_day) {
+      return item.price_per_day * nights
+    }
+    return 0
+  }
+
+  const itemTotal = getItemPrice()
 
   const servicesTotal = selectedServices.reduce((sum, serviceId) => {
     const service = SERVICES.find((s) => s.id === serviceId)
-    return sum + (service?.price || 0)
+    return sum + (service?.price_per_day || 0) * nights
   }, 0)
 
   const handleNextStep = () => {
@@ -108,7 +147,7 @@ function BookingPageContent() {
             Complete Your Booking
           </h1>
           <p className="text-lg text-muted-foreground mt-2">
-            Follow the steps below to reserve your luxury stay in Rwanda
+            Follow the steps below to confirm your luxury reservation
           </p>
         </div>
       </div>
@@ -119,314 +158,309 @@ function BookingPageContent() {
           <div className="flex justify-center items-center py-24">
             <div className="text-center">
               <Loader2 className="h-12 w-12 animate-spin text-accent mx-auto mb-4" />
-              <p className="text-muted-foreground">Loading property details...</p>
+              <p className="text-muted-foreground">Loading {type} details...</p>
             </div>
           </div>
         )}
 
         {/* Error State */}
-        {!loading && !property && (
+        {!loading && (error || !item) && (
           <div className="text-center py-24">
-            <h2 className="text-2xl font-serif font-bold text-foreground mb-4">Property Not Found</h2>
-            <p className="text-muted-foreground mb-6">The property you're trying to book doesn't exist or has been removed.</p>
-            <Link href="/properties"><Button>Browse Properties</Button></Link>
+            <h2 className="text-2xl font-serif font-bold text-foreground mb-4">
+              {error || 'Item Not Found'}
+            </h2>
+            <p className="text-muted-foreground mb-6">
+              The {type} you are trying to book doesn't exist or has been removed.
+            </p>
+            <div className="space-x-4">
+              <Link href={type === 'car' ? '/car-rental' : type === 'service' ? '/services' : '/properties'}>
+                <Button>Browse {type === 'car' ? 'Cars' : type === 'service' ? 'Services' : 'Properties'}</Button>
+              </Link>
+            </div>
           </div>
         )}
 
         {/* Booking Form */}
-        {!loading && property && (
+        {!loading && item && (
           <>
-        {/* Steps */}
-        <BookingSteps steps={bookingSteps} currentStep={currentStep} />
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            {/* Step 1: Select Dates */}
-            {currentStep === 1 && (
-              <div className="card-luxury space-y-6">
-                <div>
-                  <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
-                    When would you like to stay?
-                  </h2>
-                  <p className="text-muted-foreground">
-                    Choose your check-in and check-out dates for {property?.name}
-                  </p>
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <div>
-                    <label className="block text-sm font-semibold text-foreground mb-3">
-                      Check-in Date
-                    </label>
-                    <input
-                      type="date"
-                      value={checkIn}
-                      onChange={(e) => setCheckIn(e.target.value)}
-                      className="input-luxury w-full"
+            {/* Selected Item Card */}
+            <div className="mb-8 card-luxury">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-start">
+                {/* Image */}
+                <div className="relative h-48 rounded-lg overflow-hidden bg-muted">
+                  {item.images && item.images.length > 0 ? (
+                    <img
+                      src={item.images[0]}
+                      alt={item.name || `${item.make} ${item.model}`}
+                      className="w-full h-full object-cover"
                     />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-semibold text-foreground mb-3">
-                      Check-out Date
-                    </label>
-                    <input
-                      type="date"
-                      value={checkOut}
-                      onChange={(e) => setCheckOut(e.target.value)}
-                      className="input-luxury w-full"
-                    />
-                  </div>
-                </div>
-
-                {nights > 0 && (
-                  <div className="bg-secondary p-4 rounded-lg">
-                    <p className="text-sm text-muted-foreground">
-                      Duration: <span className="font-semibold text-foreground">{nights} nights</span>
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Total: <span className="font-semibold text-accent">{formatPrice(roomTotal, false)}</span>
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Step 2: Select Guests */}
-            {currentStep === 2 && (
-              <div className="card-luxury space-y-6">
-                <div>
-                  <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
-                    How many guests?
-                  </h2>
-                  <p className="text-muted-foreground">
-                    This property accommodates up to {property.capacity} guests
-                  </p>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-foreground mb-3">
-                    Number of Guests
-                  </label>
-                  <select
-                    value={guests}
-                    onChange={(e) => setGuests(e.target.value)}
-                    className="input-luxury w-full text-lg"
-                  >
-                    {[...Array(Math.min(property.capacity, 10))].map((_, i) => (
-                      <option key={i + 1} value={String(i + 1)}>
-                        {i + 1} Guest{i !== 0 ? 's' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="bg-accent/10 p-4 rounded-lg border border-accent/20">
-                  <h3 className="font-semibold text-foreground mb-2">Property Details</h3>
-                  <p className="text-sm text-muted-foreground">{property.description}</p>
-                </div>
-              </div>
-            )}
-
-            {/* Step 3: Services */}
-            {currentStep === 3 && (
-              <div className="card-luxury">
-                <ServicesSelector
-                  onServicesChange={(serviceIds) => setSelectedServices(serviceIds)}
-                  initialServices={selectedServices}
-                />
-              </div>
-            )}
-
-            {/* Step 4: Review */}
-            {currentStep === 4 && (
-              <div className="card-luxury space-y-6">
-                <div>
-                  <h2 className="text-2xl font-serif font-bold text-foreground mb-6">
-                    Review Your Booking
-                  </h2>
-
-                  {/* Property */}
-                  <div className="bg-secondary p-4 rounded-lg mb-4">
-                    <h3 className="font-semibold text-foreground mb-2">
-                      Property
-                    </h3>
-                    <p className="text-muted-foreground text-sm">{property.name}</p>
-                    <p className="text-muted-foreground text-sm">{property.location}, Rwanda</p>
-                  </div>
-
-                  {/* Dates */}
-                  <div className="bg-secondary p-4 rounded-lg mb-4">
-                    <h3 className="font-semibold text-foreground mb-2">
-                      Dates
-                    </h3>
-                    <p className="text-muted-foreground text-sm">
-                      {checkIn && checkOut
-                        ? `${new Date(checkIn).toLocaleDateString()} - ${new Date(checkOut).toLocaleDateString()} (${nights} nights)`
-                        : 'Not selected'}
-                    </p>
-                  </div>
-
-                  {/* Guests */}
-                  <div className="bg-secondary p-4 rounded-lg mb-4">
-                    <h3 className="font-semibold text-foreground mb-2">
-                      Guests
-                    </h3>
-                    <p className="text-muted-foreground text-sm">
-                      {guests} guest{guests !== '1' ? 's' : ''}
-                    </p>
-                  </div>
-
-                  {/* Services */}
-                  {selectedServices.length > 0 && (
-                    <div className="bg-secondary p-4 rounded-lg">
-                      <h3 className="font-semibold text-foreground mb-3">
-                        Selected Services
-                      </h3>
-                      <div className="space-y-2">
-                        {selectedServices.map((serviceId) => {
-                          const service = SERVICES.find((s) => s.id === serviceId)
-                          return (
-                            <div key={serviceId} className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">{service?.name}</span>
-                              <span className="text-foreground font-semibold">
-                                {formatPrice(service?.price || 0, false)}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
+                  ) : item.image ? (
+                    <img src={item.image} alt={item.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-muted-foreground">
+                      No image
                     </div>
                   )}
                 </div>
-              </div>
-            )}
 
-            {/* Step 5: Payment */}
-            {currentStep === 5 && (
-              <div className="card-luxury space-y-6">
-                <div>
-                  <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
-                    Payment Details
-                  </h2>
-                  <p className="text-muted-foreground mb-6">
-                    Enter your payment information to complete the booking
-                  </p>
+                {/* Item Details */}
+                <div className="md:col-span-3">
+                  <h3 className="text-2xl font-serif font-bold text-foreground mb-2">
+                    {item.name || `${item.make} ${item.model}`}
+                  </h3>
 
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-foreground mb-2">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="John Doe"
-                        className="input-luxury w-full"
-                      />
-                    </div>
+                  {/* Type-specific details */}
+                  <div className="space-y-2 mb-4 text-sm text-muted-foreground">
+                    {type === 'property' && item.location && (
+                      <p>Location: {item.location}</p>
+                    )}
+                    {type === 'car' && (
+                      <>
+                        <p>Year: {item.year}</p>
+                        <p>Capacity: {item.capacity} seats</p>
+                        <p>Transmission: {item.transmission}</p>
+                        <p>Fuel: {item.fuel_type}</p>
+                      </>
+                    )}
+                  </div>
 
-                    <div>
-                      <label className="block text-sm font-semibold text-foreground mb-2">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        placeholder="john@example.com"
-                        className="input-luxury w-full"
-                      />
-                    </div>
+                  {item.description && (
+                    <p className="text-muted-foreground mb-4">{item.description}</p>
+                  )}
 
-                    <div>
-                      <label className="block text-sm font-semibold text-foreground mb-2">
-                        Card Number
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="1234 5678 9012 3456"
-                        className="input-luxury w-full"
-                        maxLength={19}
-                      />
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">
-                          Expiry Date
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="MM/YY"
-                          className="input-luxury w-full"
-                          maxLength={5}
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">
-                          CVV
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="123"
-                          className="input-luxury w-full"
-                          maxLength={4}
-                        />
-                      </div>
-                    </div>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-3xl font-bold text-accent">
+                      ${item.base_price_per_night || item.price_per_day || 0}
+                    </span>
+                    <span className="text-muted-foreground">
+                      /{type === 'property' ? 'night' : 'day'}
+                    </span>
                   </div>
                 </div>
               </div>
-            )}
+            </div>
 
-            {/* Navigation Buttons */}
-            <div className="flex gap-4 mt-8">
-              {currentStep > 1 && (
-                <button
-                  onClick={handlePrevStep}
-                  className="btn-luxury-ghost flex-1"
-                >
-                  Back
-                </button>
-              )}
-              {currentStep < 5 ? (
-                <button
-                  onClick={handleNextStep}
-                  disabled={
-                    (currentStep === 1 && (!checkIn || !checkOut)) ||
-                    (currentStep === 2 && !guests)
-                  }
-                  className="btn-luxury-accent flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Continue
-                </button>
-              ) : (
-                <Link href={`/confirmation?property=${propertyId}&checkIn=${checkIn}&checkOut=${checkOut}`}>
-                  <button className="btn-luxury-accent w-full">
-                    Complete Booking
-                  </button>
-                </Link>
-              )}
+            {/* Steps */}
+            <BookingSteps steps={bookingSteps} currentStep={currentStep} />
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+              {/* Main Content */}
+              <div className="lg:col-span-2">
+                {/* Step 1: Select Dates */}
+                {currentStep === 1 && (
+                  <div className="card-luxury space-y-6">
+                    <div>
+                      <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
+                        When would you like to stay?
+                      </h2>
+                      <p className="text-muted-foreground">
+                        Choose your check-in and check-out dates
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          Check-in Date
+                        </label>
+                        <input
+                          type="date"
+                          value={checkIn}
+                          onChange={(e) => setCheckIn(e.target.value)}
+                          className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">
+                          Check-out Date
+                        </label>
+                        <input
+                          type="date"
+                          value={checkOut}
+                          onChange={(e) => setCheckOut(e.target.value)}
+                          className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground"
+                        />
+                      </div>
+                    </div>
+
+                    {nights > 0 && (
+                      <div className="bg-secondary p-4 rounded-lg">
+                        <p className="text-sm text-muted-foreground">Total nights: {nights}</p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 2: Guests */}
+                {currentStep === 2 && (
+                  <div className="card-luxury space-y-6">
+                    <div>
+                      <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
+                        How many guests?
+                      </h2>
+                      <p className="text-muted-foreground">
+                        Let us know your party size
+                      </p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">
+                        Number of Guests
+                      </label>
+                      <input
+                        type="number"
+                        min="1"
+                        value={guests}
+                        onChange={(e) => setGuests(e.target.value)}
+                        className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 3: Services */}
+                {currentStep === 3 && (
+                  <div className="card-luxury space-y-6">
+                    <div>
+                      <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
+                        Add Services
+                      </h2>
+                      <p className="text-muted-foreground">
+                        Enhance your stay with our premium services
+                      </p>
+                    </div>
+                    <ServicesSelector selected={selectedServices} onSelect={setSelectedServices} />
+                  </div>
+                )}
+
+                {/* Step 4: Review */}
+                {currentStep === 4 && (
+                  <div className="card-luxury space-y-6">
+                    <div>
+                      <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
+                        Review Your Booking
+                      </h2>
+                      <p className="text-muted-foreground">
+                        Please review your booking details before payment
+                      </p>
+                    </div>
+
+                    <div className="space-y-4">
+                      <div className="border-b border-border pb-4">
+                        <p className="text-sm text-muted-foreground">Item</p>
+                        <p className="font-semibold">{item.name || `${item.make} ${item.model}`}</p>
+                      </div>
+                      <div className="border-b border-border pb-4">
+                        <p className="text-sm text-muted-foreground">Duration</p>
+                        <p className="font-semibold">
+                          {checkIn} to {checkOut} ({nights} nights)
+                        </p>
+                      </div>
+                      <div className="border-b border-border pb-4">
+                        <p className="text-sm text-muted-foreground">Guests</p>
+                        <p className="font-semibold">{guests}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 5: Payment */}
+                {currentStep === 5 && (
+                  <div className="card-luxury space-y-6">
+                    <div>
+                      <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
+                        Payment Details
+                      </h2>
+                      <p className="text-muted-foreground">
+                        Complete your booking with secure payment
+                      </p>
+                    </div>
+                    <div className="bg-secondary p-4 rounded-lg text-center">
+                      <p className="text-muted-foreground">Payment integration coming soon</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* Navigation Buttons */}
+                <div className="flex gap-4 mt-8">
+                  {currentStep > 1 && (
+                    <Button onClick={handlePrevStep} variant="outline">
+                      Previous
+                    </Button>
+                  )}
+                  {currentStep < 5 && (
+                    <Button onClick={handleNextStep} className="ml-auto">
+                      Next
+                    </Button>
+                  )}
+                  {currentStep === 5 && (
+                    <Button className="ml-auto">
+                      Complete Booking
+                    </Button>
+                  )}
+                </div>
+              </div>
+
+              {/* Sidebar Summary */}
+              <div>
+                <div className="card-luxury sticky top-4">
+                  <h3 className="text-lg font-serif font-bold text-foreground mb-6">
+                    Booking Summary
+                  </h3>
+
+                  <div className="space-y-3 border-b border-border pb-4 mb-4">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Item</span>
+                      <span className="font-semibold">${itemTotal}</span>
+                    </div>
+                    {servicesTotal > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Services</span>
+                        <span className="font-semibold">${servicesTotal}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-between mb-6">
+                    <span className="text-lg font-bold">Total</span>
+                    <span className="text-2xl font-bold text-accent">
+                      ${itemTotal + servicesTotal}
+                    </span>
+                  </div>
+
+                  <Button className="w-full">
+                    Proceed to Payment
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* No Parameters - Show Browse Options */}
+        {!loading && !id && !error && (
+          <div className="text-center py-24">
+            <h2 className="text-2xl font-serif font-bold text-foreground mb-4">
+              What would you like to book?
+            </h2>
+            <p className="text-muted-foreground mb-8">
+              Select an item from our offerings to get started
+            </p>
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <Link href="/properties">
+                <Button className="w-full">Villas & Apartments</Button>
+              </Link>
+              <Link href="/car-rental">
+                <Button className="w-full">Cars</Button>
+              </Link>
+              <Link href="/services">
+                <Button className="w-full">Services</Button>
+              </Link>
+              <Link href="/">
+                <Button variant="outline" className="w-full">Back Home</Button>
+              </Link>
             </div>
           </div>
-
-          {/* Booking Summary Sidebar */}
-          <div className="lg:col-span-1">
-            <BookingSummary
-              property={{
-                name: property?.name || 'Property',
-                location: property?.location || 'Rwanda',
-                pricePerNight: property?.base_price_per_night || 0,
-                image: property?.images?.[0] || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200&q=80',
-              }}
-              checkIn={checkIn}
-              checkOut={checkOut}
-              guests={guests}
-              nights={nights}
-              propertyTotal={roomTotal}
-              servicesTotal={servicesTotal}
-            />
-          </div>
-        </div>
-          </>
         )}
       </div>
 
@@ -437,7 +471,16 @@ function BookingPageContent() {
 
 export default function BookingPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense
+      fallback={
+        <main className="w-full">
+          <Navbar />
+          <div className="flex justify-center items-center py-24">
+            <Loader2 className="h-12 w-12 animate-spin text-accent" />
+          </div>
+        </main>
+      }
+    >
       <BookingPageContent />
     </Suspense>
   )
