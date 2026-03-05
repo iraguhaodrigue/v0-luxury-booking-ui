@@ -1,12 +1,25 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { MapPin, Phone, Mail, Clock } from 'lucide-react'
+import { MapPin, Phone, Mail, Clock, Loader2 } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+import { logger } from '@/lib/utils/logger'
+
+interface Message {
+  id: string
+  sender_name: string
+  sender_email: string
+  message: string
+  admin_reply?: string
+  admin_name?: string
+  created_at: string
+  reply_created_at?: string
+}
 
 export default function ContactPage() {
   const [formData, setFormData] = useState({
@@ -20,6 +33,44 @@ export default function ContactPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+  const [messageHistory, setMessageHistory] = useState<Message[]>([])
+  const [showHistory, setShowHistory] = useState(false)
+  const [loadingHistory, setLoadingHistory] = useState(false)
+
+  useEffect(() => {
+    if (formData.email) {
+      fetchMessageHistory(formData.email)
+    }
+  }, [formData.email])
+
+  const fetchMessageHistory = async (email: string) => {
+    if (!email) return
+    try {
+      setLoadingHistory(true)
+      logger.info(`Fetching message history for ${email}`)
+      const supabase = createClient()
+      const { data, error: fetchError } = await supabase
+        .from('messages')
+        .select('*')
+        .eq('sender_email', email.trim())
+        .order('created_at', { ascending: true })
+
+      if (fetchError) {
+        logger.warn('Failed to load message history', fetchError)
+        return
+      }
+
+      logger.success(`Found ${data?.length || 0} messages`)
+      setMessageHistory(data || [])
+      if (data && data.length > 0) {
+        setShowHistory(true)
+      }
+    } catch (err) {
+      logger.error('Exception loading message history', err)
+    } finally {
+      setLoadingHistory(false)
+    }
+  }
 
   const handleChange = (e: any) => {
     const { name, value } = e.target
@@ -164,6 +215,46 @@ export default function ContactPage() {
                 {error && (
                   <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
                     <p className="text-red-700 font-medium">{error}</p>
+                  </div>
+                )}
+
+                {/* Conversation History */}
+                {showHistory && messageHistory.length > 0 && (
+                  <div className="mb-8 p-4 bg-accent/5 border border-accent/20 rounded-lg">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="font-semibold text-foreground">Conversation History</h3>
+                      <button
+                        onClick={() => setShowHistory(!showHistory)}
+                        className="text-sm text-accent hover:underline"
+                      >
+                        {showHistory ? 'Hide' : 'Show'}
+                      </button>
+                    </div>
+                    {showHistory && (
+                      <div className="space-y-4 max-h-96 overflow-y-auto">
+                        {messageHistory.map((msg) => (
+                          <div key={msg.id} className="space-y-2">
+                            {/* Your Message */}
+                            <div className="bg-accent/10 rounded-lg p-3">
+                              <p className="text-xs text-muted-foreground font-semibold">
+                                You - {new Date(msg.created_at).toLocaleString()}
+                              </p>
+                              <p className="text-sm text-foreground mt-1">{msg.message}</p>
+                            </div>
+
+                            {/* Admin Reply */}
+                            {msg.admin_reply && (
+                              <div className="bg-green-50 rounded-lg p-3 border border-green-200">
+                                <p className="text-xs text-green-700 font-semibold">
+                                  {msg.admin_name || 'Admin'} - {new Date(msg.reply_created_at || msg.created_at).toLocaleString()}
+                                </p>
+                                <p className="text-sm text-foreground mt-1">{msg.admin_reply}</p>
+                              </div>
+                            )}
+                          </div>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
 

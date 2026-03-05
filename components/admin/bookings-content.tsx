@@ -1,175 +1,181 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { DataTable } from '@/components/admin/data-table'
 import { createClient } from '@/lib/supabase/client'
+import { Card, CardContent } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Loader2 } from 'lucide-react'
+import { logger } from '@/lib/utils/logger'
 
-interface BookingData {
-  id: number
-  guest_name: string
-  property_name: string
-  check_in_date: string
-  check_out_date: string
+interface BookingRecord {
+  id: string
+  item_id: string
+  item_type: string
+  user_name: string
+  user_email: string
+  guests: number
+  checkin: string
+  checkout: string
   total_price: number
+  payment_method: string
   status: string
-  nights: number
+  created_at: string
 }
 
-const columns = [
-  { key: 'id', label: 'Booking ID' },
-  { key: 'guest_name', label: 'Guest Name' },
-  { key: 'property_name', label: 'Property' },
-  {
-    key: 'check_in_date',
-    label: 'Check-in',
-    render: (value: string) => new Date(value).toLocaleDateString(),
-  },
-  {
-    key: 'check_out_date',
-    label: 'Check-out',
-    render: (value: string) => new Date(value).toLocaleDateString(),
-  },
-  { key: 'nights', label: 'Nights' },
-  {
-    key: 'total_price',
-    label: 'Total',
-    render: (value: number) => `$${value}`,
-  },
-  {
-    key: 'status',
-    label: 'Status',
-    render: (value: string) => (
-      <span
-        className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-          value === 'confirmed'
-            ? 'bg-accent/10 text-accent'
-            : 'bg-yellow-100 text-yellow-800'
-        }`}
-      >
-        {value.charAt(0).toUpperCase() + value.slice(1)}
-      </span>
-    ),
-  },
-]
-
 export default function BookingsContent() {
-  const [bookings, setBookings] = useState<BookingData[]>([])
+  const [bookings, setBookings] = useState<BookingRecord[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const supabase = createClient()
-        const { data, error } = await supabase
-          .from('bookings')
-          .select(`
-            id,
-            total_price,
-            status,
-            check_in_date,
-            check_out_date,
-            users (full_name),
-            rooms (property_id, properties (name))
-          `)
-          .order('created_at', { ascending: false })
-
-        if (error) throw error
-
-        const formattedBookings = data?.map((booking: any) => {
-          const checkIn = new Date(booking.check_in_date)
-          const checkOut = new Date(booking.check_out_date)
-          const nights = Math.ceil(
-            (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)
-          )
-
-          return {
-            id: booking.id,
-            guest_name: booking.users?.full_name || 'Unknown',
-            property_name: booking.rooms?.properties?.name || 'Unknown Property',
-            check_in_date: booking.check_in_date,
-            check_out_date: booking.check_out_date,
-            total_price: booking.total_price,
-            status: booking.status,
-            nights,
-          }
-        }) || []
-
-        setBookings(formattedBookings)
-      } catch (err) {
-        console.error('Error fetching bookings:', err)
-        setError('Failed to load bookings')
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchBookings()
+
+    // Subscribe to new bookings
+    const supabase = createClient()
+    const subscription = supabase
+      .channel('bookings')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings' }, (payload) => {
+        console.log('[v0] New booking received:', payload)
+        setBookings((prev) => [payload.new as BookingRecord, ...prev])
+      })
+      .subscribe()
+
+    return () => {
+      subscription.unsubscribe()
+    }
   }, [])
 
-  const handleEdit = (booking: any) => {
-    console.log('Edit booking:', booking)
-  }
-
-  const handleDelete = async (booking: any) => {
+  const fetchBookings = async () => {
     try {
+      logger.info('Fetching bookings from database')
       const supabase = createClient()
-      const { error } = await supabase
+      const { data, error: fetchError } = await supabase
         .from('bookings')
-        .delete()
-        .eq('id', booking.id)
+        .select('*')
+        .order('created_at', { ascending: false })
 
-      if (error) throw error
-      setBookings(bookings.filter(b => b.id !== booking.id))
+      if (fetchError) {
+        logger.error('Error fetching bookings', fetchError)
+        throw fetchError
+      }
+
+      logger.success(`Retrieved ${data?.length || 0} bookings`)
+      setBookings(data || [])
+      setError(null)
     } catch (err) {
-      console.error('Error deleting booking:', err)
+      logger.error('Exception fetching bookings', err)
+      setError('Failed to load bookings')
+    } finally {
+      setLoading(false)
     }
   }
 
-  const handleView = (booking: any) => {
-    console.log('View booking:', booking)
+  const calculateNights = (checkin: string, checkout: string) => {
+    const start = new Date(checkin)
+    const end = new Date(checkout)
+    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+  }
+
+  const getTypeColor = (type: string) => {
+    switch (type) {
+      case 'property':
+        return 'bg-blue-100 text-blue-800'
+      case 'car':
+        return 'bg-purple-100 text-purple-800'
+      case 'service':
+        return 'bg-green-100 text-green-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
   }
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">Loading bookings...</p>
+      <div className="flex justify-center items-center py-12">
+        <Loader2 className="h-8 w-8 animate-spin text-accent" />
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+        {error}
       </div>
     )
   }
 
   return (
-    <div>
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
+    <div className="space-y-4">
+      {bookings.length === 0 ? (
+        <Card>
+          <CardContent className="py-12">
+            <p className="text-center text-muted-foreground">No bookings yet</p>
+          </CardContent>
+        </Card>
+      ) : (
+        bookings.map((booking) => (
+          <Card key={booking.id} className="hover:shadow-lg transition-shadow">
+            <CardContent className="p-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4 items-center">
+                {/* Customer Info */}
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Customer</p>
+                  <p className="font-semibold text-foreground">{booking.user_name}</p>
+                  <p className="text-sm text-muted-foreground">{booking.user_email}</p>
+                </div>
+
+                {/* Booking Details */}
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Item</p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <Badge className={getTypeColor(booking.item_type)}>
+                      {booking.item_type}
+                    </Badge>
+                    <p className="font-semibold text-foreground">#{booking.item_id.slice(0, 8)}</p>
+                  </div>
+                </div>
+
+                {/* Dates */}
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Dates</p>
+                  <p className="font-semibold text-foreground">
+                    {new Date(booking.checkin).toLocaleDateString()}
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    {calculateNights(booking.checkin, booking.checkout)} nights
+                  </p>
+                </div>
+
+                {/* Payment & Price */}
+                <div>
+                  <p className="text-xs text-muted-foreground uppercase tracking-wide">Payment</p>
+                  <p className="font-semibold text-foreground">${booking.total_price}</p>
+                  <p className="text-sm text-muted-foreground">{booking.payment_method}</p>
+                </div>
+
+                {/* Status */}
+                <div className="flex flex-col items-start lg:items-end">
+                  <Badge
+                    className={
+                      booking.status === 'confirmed'
+                        ? 'bg-green-100 text-green-800'
+                        : booking.status === 'pending'
+                          ? 'bg-yellow-100 text-yellow-800'
+                          : 'bg-red-100 text-red-800'
+                    }
+                  >
+                    {booking.status}
+                  </Badge>
+                  <p className="text-xs text-muted-foreground mt-2">
+                    {new Date(booking.created_at).toLocaleString()}
+                  </p>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+        ))
       )}
-
-      {/* Filters */}
-      <div className="flex gap-4 mb-8 flex-wrap">
-        <input
-          type="text"
-          placeholder="Search by guest or booking ID..."
-          className="input-luxury flex-1 min-w-[200px]"
-        />
-        <select className="input-luxury">
-          <option>All Status</option>
-          <option>confirmed</option>
-          <option>pending</option>
-          <option>cancelled</option>
-        </select>
-        <input type="date" className="input-luxury" />
-      </div>
-
-      {/* Table */}
-      <DataTable
-        columns={columns}
-        data={bookings}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onView={handleView}
-      />
     </div>
   )
 }

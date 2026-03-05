@@ -52,8 +52,17 @@ function BookingPageContent() {
   const [guests, setGuests] = useState('2')
   const [selectedServices, setSelectedServices] = useState<number[]>([])
   const [item, setItem] = useState<BookableItem | null>(null)
-  const [loading, setLoading] = useState(!id) // Only load if id is provided
+  const [loading, setLoading] = useState(!id)
   const [error, setError] = useState<string | null>(null)
+  const [paymentMethod, setPaymentMethod] = useState('card')
+  const [cardNumber, setCardNumber] = useState('')
+  const [cardExpiry, setCardExpiry] = useState('')
+  const [cardCVV, setCardCVV] = useState('')
+  const [phoneNumber, setPhoneNumber] = useState('')
+  const [mobileProvider, setMobileProvider] = useState('mtn')
+  const [processingPayment, setProcessingPayment] = useState(false)
+  const [bookingSuccess, setBookingSuccess] = useState(false)
+  const [bookingId, setBookingId] = useState<string>('')
 
   useEffect(() => {
     if (id) {
@@ -135,6 +144,68 @@ function BookingPageContent() {
 
   const handlePrevStep = () => {
     if (currentStep > 1) setCurrentStep(currentStep - 1)
+  }
+
+  const handleCompleteBooking = async () => {
+    try {
+      setProcessingPayment(true)
+
+      // Validate payment input
+      if (paymentMethod === 'card') {
+        if (!cardNumber || !cardExpiry || !cardCVV) {
+          setError('Please fill in all card details')
+          setProcessingPayment(false)
+          return
+        }
+      } else if (paymentMethod === 'mobile') {
+        if (!phoneNumber) {
+          setError('Please enter a phone number')
+          setProcessingPayment(false)
+          return
+        }
+      }
+
+      // Simulate payment processing
+      await new Promise((resolve) => setTimeout(resolve, 1500))
+
+      logger.info('Processing booking with demo payment')
+
+      // Create booking record
+      const supabase = createClient()
+      const totalPrice = itemTotal + servicesTotal
+
+      const { data, error: bookingError } = await supabase
+        .from('bookings')
+        .insert({
+          item_id: String(item?.id),
+          item_type: type,
+          user_name: 'Guest User',
+          user_email: 'guest@example.com',
+          guests: parseInt(guests),
+          checkin: checkIn,
+          checkout: checkOut,
+          total_price: totalPrice,
+          payment_method: paymentMethod === 'card' ? 'Card (Demo)' : `${mobileProvider.toUpperCase()} Money (Demo)`,
+          status: 'confirmed',
+        })
+        .select()
+
+      if (bookingError || !data) {
+        logger.error('Error creating booking', bookingError)
+        setError('Failed to complete booking. Please try again.')
+        setProcessingPayment(false)
+        return
+      }
+
+      logger.success('Booking created successfully', { bookingId: data[0].id })
+      setBookingId(data[0].id)
+      setBookingSuccess(true)
+      setProcessingPayment(false)
+    } catch (err) {
+      logger.error('Exception during booking completion', err)
+      setError('An error occurred. Please try again.')
+      setProcessingPayment(false)
+    }
   }
 
   return (
@@ -372,31 +443,170 @@ function BookingPageContent() {
                         Payment Details
                       </h2>
                       <p className="text-muted-foreground">
-                        Complete your booking with secure payment
+                        Choose your payment method (Demo Mode)
                       </p>
                     </div>
-                    <div className="bg-secondary p-4 rounded-lg text-center">
-                      <p className="text-muted-foreground">Payment integration coming soon</p>
+
+                    {/* Payment Method Selection */}
+                    <div className="space-y-3">
+                      <div className="flex items-center gap-3 p-4 border-2 border-accent rounded-lg cursor-pointer" onClick={() => setPaymentMethod('card')}>
+                        <input
+                          type="radio"
+                          name="payment"
+                          value="card"
+                          checked={paymentMethod === 'card'}
+                          onChange={(e) => setPaymentMethod(e.target.value)}
+                          className="w-4 h-4"
+                        />
+                        <label className="cursor-pointer flex-1">
+                          <p className="font-semibold text-foreground">Card Payment (Demo)</p>
+                          <p className="text-sm text-muted-foreground">Visa, Mastercard, Amex</p>
+                        </label>
+                      </div>
+
+                      <div className="flex items-center gap-3 p-4 border-2 border-border rounded-lg cursor-pointer hover:border-accent/50 transition" onClick={() => setPaymentMethod('mobile')}>
+                        <input
+                          type="radio"
+                          name="payment"
+                          value="mobile"
+                          checked={paymentMethod === 'mobile'}
+                          onChange={(e) => setPaymentMethod(e.target.value)}
+                          className="w-4 h-4"
+                        />
+                        <label className="cursor-pointer flex-1">
+                          <p className="font-semibold text-foreground">Mobile Money (Demo)</p>
+                          <p className="text-sm text-muted-foreground">MTN MoMo, Airtel Money</p>
+                        </label>
+                      </div>
                     </div>
+
+                    {/* Card Payment Form */}
+                    {paymentMethod === 'card' && (
+                      <div className="space-y-4 bg-secondary p-4 rounded-lg">
+                        <p className="text-sm text-muted-foreground">
+                          <strong>Demo Mode:</strong> Use any 16-digit number. Example: 4532 1234 5678 9010
+                        </p>
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            Card Number
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="4532 1234 5678 9010"
+                            value={cardNumber}
+                            onChange={(e) => setCardNumber(e.target.value.replace(/\s/g, ''))}
+                            maxLength="16"
+                            className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground"
+                          />
+                        </div>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">
+                              Expiry (MM/YY)
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="12/25"
+                              value={cardExpiry}
+                              onChange={(e) => setCardExpiry(e.target.value)}
+                              maxLength="5"
+                              className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground"
+                            />
+                          </div>
+                          <div>
+                            <label className="block text-sm font-medium text-foreground mb-2">
+                              CVV
+                            </label>
+                            <input
+                              type="text"
+                              placeholder="123"
+                              value={cardCVV}
+                              onChange={(e) => setCardCVV(e.target.value)}
+                              maxLength="4"
+                              className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* Mobile Money Form */}
+                    {paymentMethod === 'mobile' && (
+                      <div className="space-y-4 bg-secondary p-4 rounded-lg">
+                        <p className="text-sm text-muted-foreground">
+                          <strong>Demo Mode:</strong> Enter any valid phone number
+                        </p>
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            Provider
+                          </label>
+                          <select
+                            value={mobileProvider}
+                            onChange={(e) => setMobileProvider(e.target.value)}
+                            className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground"
+                          >
+                            <option value="mtn">MTN MoMo</option>
+                            <option value="airtel">Airtel Money</option>
+                          </select>
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-foreground mb-2">
+                            Phone Number
+                          </label>
+                          <input
+                            type="tel"
+                            placeholder="+250 7XX XXX XXX"
+                            value={phoneNumber}
+                            onChange={(e) => setPhoneNumber(e.target.value)}
+                            className="w-full px-4 py-2 rounded-lg border border-border bg-background text-foreground"
+                          />
+                        </div>
+                      </div>
+                    )}
+
+                    {error && (
+                      <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+                        {error}
+                      </div>
+                    )}
+
+                    {bookingSuccess && (
+                      <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
+                        <p className="font-semibold">Booking Confirmed!</p>
+                        <p className="text-sm">Booking ID: {bookingId}</p>
+                      </div>
+                    )}
                   </div>
                 )}
 
                 {/* Navigation Buttons */}
                 <div className="flex gap-4 mt-8">
-                  {currentStep > 1 && (
+                  {currentStep > 1 && !bookingSuccess && (
                     <Button onClick={handlePrevStep} variant="outline">
                       Previous
                     </Button>
                   )}
-                  {currentStep < 5 && (
+                  {currentStep < 5 && !bookingSuccess && (
                     <Button onClick={handleNextStep} className="ml-auto">
                       Next
                     </Button>
                   )}
-                  {currentStep === 5 && (
-                    <Button className="ml-auto">
-                      Complete Booking
+                  {currentStep === 5 && !bookingSuccess && (
+                    <Button onClick={handleCompleteBooking} disabled={processingPayment} className="ml-auto">
+                      {processingPayment ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                          Processing...
+                        </>
+                      ) : (
+                        'Complete Booking'
+                      )}
                     </Button>
+                  )}
+                  {bookingSuccess && (
+                    <Link href="/properties" className="ml-auto">
+                      <Button>Continue Shopping</Button>
+                    </Link>
                   )}
                 </div>
               </div>

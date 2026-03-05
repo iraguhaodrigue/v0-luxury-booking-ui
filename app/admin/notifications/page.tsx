@@ -20,22 +20,37 @@ interface Notification {
 
 interface ContactMessage {
   id: string
-  name: string
-  email: string
+  sender_name: string
+  sender_email: string
   message: string
+  admin_reply?: string
   read_by_admin: boolean
+  created_at: string
+}
+
+interface BookingNotification {
+  id: string
+  user_name: string
+  user_email: string
+  item_type: string
+  item_id: string
+  total_price: number
+  checkin: string
+  checkout: string
   created_at: string
 }
 
 export default function NotificationsPage() {
   const [notifications, setNotifications] = useState<Notification[]>([])
   const [contactMessages, setContactMessages] = useState<ContactMessage[]>([])
+  const [bookings, setBookings] = useState<BookingNotification[]>([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('all')
 
   useEffect(() => {
     fetchNotifications()
     fetchContactMessages()
+    fetchBookings()
     
     // Set up real-time subscription for messages
     const supabase = createClient()
@@ -47,11 +62,21 @@ export default function NotificationsPage() {
       })
       .subscribe()
 
+    // Set up real-time subscription for bookings
+    const bookingSubscription = supabase
+      .channel('bookings')
+      .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings' }, (payload) => {
+        console.log('[v0] New booking received:', payload)
+        setBookings((prev) => [payload.new as BookingNotification, ...prev])
+      })
+      .subscribe()
+
     const interval = setInterval(fetchNotifications, 5000)
     
     return () => {
       clearInterval(interval)
       messageSubscription.unsubscribe()
+      bookingSubscription.unsubscribe()
     }
   }, [])
 
@@ -93,6 +118,26 @@ export default function NotificationsPage() {
       setContactMessages(data || [])
     } catch (error) {
       console.error('[v0] Exception fetching messages:', error)
+    }
+  }
+
+  const fetchBookings = async () => {
+    try {
+      console.log('[v0] Fetching bookings')
+      const supabase = createClient()
+      const { data, error } = await supabase
+        .from('bookings')
+        .select('*')
+        .order('created_at', { ascending: false })
+
+      if (error) {
+        console.error('[v0] Error fetching bookings:', error.message)
+        return
+      }
+
+      setBookings(data || [])
+    } catch (error) {
+      console.error('[v0] Exception fetching bookings:', error)
     } finally {
       setLoading(false)
     }

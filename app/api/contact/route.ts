@@ -28,38 +28,48 @@ export async function POST(request: NextRequest) {
     logger.info('Processing contact form', { name, email })
     const supabase = await createClient()
 
+    // Check if this is a reply or a new message
+    const { data: existingThread } = await supabase
+      .from('messages')
+      .select('thread_id')
+      .eq('sender_email', email.trim())
+      .order('created_at', { ascending: false })
+      .limit(1)
+
+    const threadId = existingThread?.[0]?.thread_id
+
     // Insert into messages table
     const { data, error: insertError } = await supabase
       .from('messages')
       .insert({
-        name: name.trim(),
-        email: email.trim(),
-        message: `Subject: ${subject || 'No subject'}\nPhone: ${phone || 'Not provided'}\n\n${message.trim()}`,
+        thread_id: threadId || undefined, // Will be set to id if null in next step
+        sender_name: name.trim(),
+        sender_email: email.trim(),
+        message: message.trim(),
+        read_by_admin: false,
       })
       .select()
 
     if (insertError) {
       logger.error('Database insert error', { code: insertError.code, message: insertError.message })
-      
-      // Provide specific error messages
-      if (insertError.message.includes('relation "public.messages" does not exist')) {
-        logger.warn('Messages table does not exist - need to run migration')
-        return NextResponse.json(
-          { 
-            error: 'Database table not initialized. Please contact support.',
-            debug: 'Run migration: supabase/migrations/006_create_messages_table.sql'
-          },
-          { status: 503 }
-        )
-      }
-      
       return NextResponse.json(
         { error: `Failed to save message: ${insertError.message}` },
         { status: 500 }
       )
     }
 
-    logger.success('Contact message saved', { email, messageId: data?.[0]?.id })
+    const messageId = data?.[0]?.id
+    const finalThreadId = threadId || messageId
+
+    // If this is the first message in thread, set thread_id to message id
+    if (!threadId && messageId) {
+      await supabase
+        .from('messages')
+        .update({ thread_id: messageId })
+        .eq('id', messageId)
+    }
+
+    logger.success('Contact message saved', { email, messageId, threadId: finalThreadId })
 
     return NextResponse.json(
       { 
