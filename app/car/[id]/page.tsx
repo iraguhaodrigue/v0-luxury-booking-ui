@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { createClient } from '@/lib/supabase/client'
+import { logger } from '@/lib/utils/logger'
 import { Loader2, ChevronLeft, ChevronRight, Users, Zap, Gauge } from 'lucide-react'
 import Link from 'next/link'
 
@@ -40,6 +41,7 @@ export default function CarDetailPage() {
 
   const fetchCar = async () => {
     try {
+      logger.info(`Fetching car: ${carId}`)
       const supabase = createClient()
       const { data, error } = await supabase
         .from('cars')
@@ -48,15 +50,16 @@ export default function CarDetailPage() {
         .single()
 
       if (error || !data) {
-        console.error('[v0] Car not found:', carId, error)
+        logger.warn(`Car not found: ${carId}`)
         setError('Car not found')
         setCar(null)
       } else {
+        logger.success(`Car loaded: ${data.make} ${data.model}`)
         setCar(data)
         setError(null)
       }
     } catch (err) {
-      console.error('[v0] Error fetching car:', err)
+      logger.error('Error fetching car', err)
       setError('Failed to load car details')
       setCar(null)
     } finally {

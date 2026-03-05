@@ -2,9 +2,11 @@ import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { CarCard } from '@/components/cars/car-card'
 import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/utils/logger'
 
 async function fetchCars() {
   try {
+    logger.info('Fetching cars from database')
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('cars')
@@ -12,13 +14,19 @@ async function fetchCars() {
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('[v0] Error fetching cars:', error.message)
+      logger.error('Error fetching cars from database', error)
       return []
     }
 
-    return data && data.length > 0 ? data : []
+    if (!data || data.length === 0) {
+      logger.info('No cars found in database')
+      return []
+    }
+
+    logger.success(`Retrieved ${data.length} cars from database`)
+    return data
   } catch (error) {
-    console.error('[v0] Error in fetchCars:', error)
+    logger.error('Exception while fetching cars', error)
     return []
   }
 }

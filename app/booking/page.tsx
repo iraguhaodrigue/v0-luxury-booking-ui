@@ -9,6 +9,7 @@ import { BookingSteps } from '@/components/booking/booking-steps'
 import { ServicesSelector } from '@/components/booking/services-selector'
 import { BookingSummary } from '@/components/booking/booking-summary'
 import { formatPrice } from '@/lib/utils/currency'
+import { logger } from '@/lib/utils/logger'
 import { SAMPLE_PROPERTIES, SERVICES } from '@/lib/constants/rwanda-data'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -51,6 +52,7 @@ function BookingPageContent() {
 
   const fetchProperty = async () => {
     try {
+      logger.info(`Fetching property: ${propertyId}`)
       const supabase = createClient()
       const { data, error } = await supabase
         .from('properties')
@@ -59,14 +61,15 @@ function BookingPageContent() {
         .single()
 
       if (error || !data) {
-        console.error('[v0] Property not found:', propertyId)
-        setProperty(null) // Don't use fallback
+        logger.warn(`Property not found: ${propertyId}`)
+        setProperty(null)
       } else {
+        logger.success(`Property loaded: ${data.name}`)
         setProperty(data)
       }
     } catch (error) {
-      console.error('[v0] Error fetching property:', error)
-      setProperty(null) // Don't use fallback
+      logger.error('Error fetching property', error)
+      setProperty(null)
     } finally {
       setLoading(false)
     }

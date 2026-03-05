@@ -1,13 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { logger, validateRequired } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
     const { name, email, phone, subject, message } = await request.json()
-    console.log('[v0] Contact form received:', { name, email, subject })
 
     // Validate required fields
-    if (!name || !email || !message) {
+    if (!validateRequired({ name, email, message }, ['name', 'email', 'message'])) {
+      logger.warn('Contact form missing required fields')
       return NextResponse.json(
         { error: 'Name, email, and message are required' },
         { status: 400 }
@@ -17,12 +18,14 @@ export async function POST(request: NextRequest) {
     // Validate email format
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
     if (!emailRegex.test(email)) {
+      logger.warn('Invalid email format provided', { email })
       return NextResponse.json(
         { error: 'Please provide a valid email address' },
         { status: 400 }
       )
     }
 
+    logger.info('Processing contact form', { name, email })
     const supabase = await createClient()
 
     // Insert into messages table
@@ -36,10 +39,11 @@ export async function POST(request: NextRequest) {
       .select()
 
     if (insertError) {
-      console.error('[v0] Insert error:', insertError.message, insertError.code)
+      logger.error('Database insert error', { code: insertError.code, message: insertError.message })
       
       // Provide specific error messages
       if (insertError.message.includes('relation "public.messages" does not exist')) {
+        logger.warn('Messages table does not exist')
         return NextResponse.json(
           { error: 'Database table not initialized. Please contact support.' },
           { status: 503 }
@@ -52,7 +56,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    console.log('[v0] Contact message saved successfully:', { email, name, id: data?.[0]?.id })
+    logger.success('Contact message saved', { email, messageId: data?.[0]?.id })
 
     return NextResponse.json(
       { 
@@ -63,7 +67,7 @@ export async function POST(request: NextRequest) {
       { status: 200 }
     )
   } catch (error: any) {
-    console.error('[v0] Contact form error:', error)
+    logger.error('Contact form exception', error)
     return NextResponse.json(
       { error: `Failed to process contact form: ${error?.message || 'Unknown error'}` },
       { status: 500 }
