@@ -2,7 +2,6 @@
 
 import { useState, useEffect } from 'react'
 import { formatPrice } from '@/lib/utils/currency'
-import { SERVICES } from '@/lib/constants/rwanda-data'
 import { createClient } from '@/lib/supabase/client'
 import { Check, Loader2 } from 'lucide-react'
 
@@ -17,11 +16,12 @@ interface Service {
 }
 
 interface ServicesSelectorProps {
-  onServicesChange: (serviceIds: number[]) => void
+  onServicesChange: (services: Array<{ id: number; name: string; price: number }>) => void
   initialServices?: number[]
+  nights?: number
 }
 
-export function ServicesSelector({ onServicesChange, initialServices = [] }: ServicesSelectorProps) {
+export function ServicesSelector({ onServicesChange, initialServices = [], nights = 1 }: ServicesSelectorProps) {
   const [selectedServices, setSelectedServices] = useState<number[]>(initialServices)
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
@@ -38,59 +38,35 @@ export function ServicesSelector({ onServicesChange, initialServices = [] }: Ser
         .select('id, name, description, price_per_day')
         .order('name')
 
-      if (error) {
-        // Use hardcoded services as fallback if database fetch fails
-        // Use hardcoded services as fallback
-        setServices(SERVICES.map(s => ({
-          id: s.id,
-          name: s.name,
-          description: s.description,
-          price: s.price,
-          duration: s.duration,
-          icon: s.icon
-        })))
-      } else if (data && data.length > 0) {
-        // Map database services
+      if (error || !data) {
+        setServices([])
+      } else {
         setServices(data.map(s => ({
           id: s.id,
           name: s.name,
           description: s.description || '',
           price: s.price_per_day || 0,
-          duration: 'Per day'
-        })))
-      } else {
-        // No services in database, use fallback
-        setServices(SERVICES.map(s => ({
-          id: s.id,
-          name: s.name,
-          description: s.description,
-          price: s.price,
-          duration: s.duration,
-          icon: s.icon
+          duration: 'Per day',
         })))
       }
-    } catch (err) {
-      // Use fallback on exception
-      setServices(SERVICES.map(s => ({
-        id: s.id,
-        name: s.name,
-        description: s.description,
-        price: s.price,
-        duration: s.duration,
-        icon: s.icon
-      })))
+    } catch {
+      setServices([])
     } finally {
       setLoading(false)
     }
   }
 
-  const handleServiceToggle = (serviceId: number) => {
-    const updated = selectedServices.includes(serviceId)
-      ? selectedServices.filter((id) => id !== serviceId)
-      : [...selectedServices, serviceId]
+  const handleServiceToggle = (service: Service) => {
+    const updated = selectedServices.includes(service.id)
+      ? selectedServices.filter((id) => id !== service.id)
+      : [...selectedServices, service.id]
 
     setSelectedServices(updated)
-    onServicesChange(updated)
+    // Emit full service objects so the parent can price correctly from DB data
+    const fullObjects = services
+      .filter(s => updated.includes(s.id))
+      .map(s => ({ id: s.id, name: s.name, price: s.price ?? 0 }))
+    onServicesChange(fullObjects)
   }
 
   const totalServicePrice = services
@@ -125,7 +101,7 @@ export function ServicesSelector({ onServicesChange, initialServices = [] }: Ser
           return (
             <button
               key={service.id}
-              onClick={() => handleServiceToggle(service.id)}
+              onClick={() => handleServiceToggle(service)}
               className={`relative p-4 rounded-lg border-2 transition-all text-left group ${
                 isSelected
                   ? 'border-accent bg-accent/5'

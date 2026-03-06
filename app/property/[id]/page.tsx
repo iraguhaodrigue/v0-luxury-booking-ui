@@ -167,7 +167,7 @@ export default async function PropertyDetailsPage({ params }: PropertyDetailsPag
                   </p>
                 </div>
 
-                <Link href={`/booking?property=${property.id}`} className="w-full block">
+                <Link href={`/booking?type=property&id=${property.id}`} className="w-full block">
                   <Button className="w-full py-6 text-lg font-semibold">
                     Book Now
                   </Button>

@@ -9,7 +9,6 @@ import { BookingSteps } from '@/components/booking/booking-steps'
 import { ServicesSelector } from '@/components/booking/services-selector'
 import { BookingSummary } from '@/components/booking/booking-summary'
 import { formatPrice } from '@/lib/utils/currency'
-import { SERVICES } from '@/lib/constants/rwanda-data'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -68,8 +67,8 @@ function BookingPageContent() {
   const [userEmail, setUserEmail] = useState('')
   const [userPhone, setUserPhone] = useState('')
 
-  // Step 4 – Extra services
-  const [selectedServices, setSelectedServices] = useState<number[]>([])
+  // Step 4 – Extra services (full objects from DB so prices are always accurate)
+  const [selectedServices, setSelectedServices] = useState<Array<{ id: number; name: string; price: number }>>([])
 
   // Step 6 – Payment
   const [paymentMethod,   setPaymentMethod]   = useState<'card' | 'mobile'>('card')
@@ -142,10 +141,7 @@ function BookingPageContent() {
   })()
 
   const itemTotal     = baseRate * (nights || 1)
-  const extrasTotal   = selectedServices.reduce((sum, sid) => {
-    const svc = SERVICES.find(s => s.id === sid)
-    return sum + (svc?.price_per_day ?? 0) * (nights || 1)
-  }, 0)
+  const extrasTotal   = selectedServices.reduce((sum, svc) => sum + (svc.price ?? 0) * (nights || 1), 0)
   const serviceFee    = Math.round((itemTotal + extrasTotal) * 0.1)
   const grandTotal    = itemTotal + extrasTotal + serviceFee
 
@@ -199,10 +195,9 @@ function BookingPageContent() {
           payment_method: paymentMethod === 'card'
             ? 'Card (Demo)'
             : `${mobileProvider.toUpperCase()} Money (Demo)`,
-          extras: selectedServices.map(sid => {
-            const svc = SERVICES.find(s => s.id === sid)
-            return { id: sid, name: svc?.name ?? '', price: svc?.price_per_day ?? 0 }
-          }),
+          extras: selectedServices.map(svc => ({
+            id: svc.id, name: svc.name, price: svc.price,
+          })),
           status: 'pending',
         })
         .select('id')

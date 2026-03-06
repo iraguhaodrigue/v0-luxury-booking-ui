@@ -125,7 +125,7 @@ export default async function PropertyDetailPage({ params }: { params: { id: str
                   className="w-full bg-accent hover:bg-accent/90 text-accent-foreground font-semibold py-3"
                   asChild
                 >
-                  <a href={`/booking?property=${property.id}`}>Book Now</a>
+                  <a href={`/booking?type=property&id=${property.id}`}>Book Now</a>
                 </Button>
 
                 <p className="text-xs text-muted-foreground text-center mt-4">
