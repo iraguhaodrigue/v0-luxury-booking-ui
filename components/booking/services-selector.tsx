@@ -39,7 +39,7 @@ export function ServicesSelector({ onServicesChange, initialServices = [] }: Ser
         .order('name')
 
       if (error) {
-        console.log('[v0] Error fetching services, using defaults:', error.message)
+        // Use hardcoded services as fallback if database fetch fails
         // Use hardcoded services as fallback
         setServices(SERVICES.map(s => ({
           id: s.id,
@@ -70,8 +70,7 @@ export function ServicesSelector({ onServicesChange, initialServices = [] }: Ser
         })))
       }
     } catch (err) {
-      console.log('[v0] Exception fetching services:', err)
-      // Use fallback
+      // Use fallback on exception
       setServices(SERVICES.map(s => ({
         id: s.id,
         name: s.name,

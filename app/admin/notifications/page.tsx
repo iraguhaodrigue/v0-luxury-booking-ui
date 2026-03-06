@@ -20,7 +20,7 @@ interface Notification {
 
 interface ContactMessage {
   id: string
-  sender_name: string
+  name: string
   sender_email: string
   message: string
   admin_reply?: string

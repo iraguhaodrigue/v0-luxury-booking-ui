@@ -12,7 +12,7 @@ import { logger } from '@/lib/utils/logger'
 
 interface Message {
   id: string
-  sender_name: string
+  name: string
   sender_email: string
   message: string
   admin_reply?: string
