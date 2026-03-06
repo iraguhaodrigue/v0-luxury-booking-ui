@@ -28,7 +28,7 @@ export async function POST(request: NextRequest) {
     logger.info('Processing contact form', { name, email })
     const supabase = await createClient()
 
-    // Check if this is a reply or a new message
+    // Check if this is a reply or a new message (for thread linking)
     const { data: existingThread } = await supabase
       .from('messages')
       .select('thread_id')
@@ -38,12 +38,12 @@ export async function POST(request: NextRequest) {
 
     const threadId = existingThread?.[0]?.thread_id
 
-    // Insert into messages table
+    // Insert into messages table with correct column names
     const { data, error: insertError } = await supabase
       .from('messages')
       .insert({
-        thread_id: threadId || undefined, // Will be set to id if null in next step
-        sender_name: name.trim(),
+        thread_id: threadId || undefined,
+        name: name.trim(),
         sender_email: email.trim(),
         message: message.trim(),
         read_by_admin: false,

@@ -1,20 +1,11 @@
--- Update messages table to support threading and replies
-ALTER TABLE IF EXISTS public.messages
-ADD COLUMN IF NOT EXISTS thread_id uuid,
-ADD COLUMN IF NOT EXISTS admin_reply text,
-ADD COLUMN IF NOT EXISTS admin_name text DEFAULT 'Admin',
-ADD COLUMN IF NOT EXISTS reply_created_at timestamp,
-ADD COLUMN IF NOT EXISTS read_by_admin boolean DEFAULT false;
+-- Drop and recreate messages table with correct schema
+DROP TABLE IF EXISTS public.messages CASCADE;
 
--- Create index for thread queries
-CREATE INDEX IF NOT EXISTS idx_messages_thread_id ON public.messages(thread_id);
-CREATE INDEX IF NOT EXISTS idx_messages_email ON public.messages(email);
-
--- If messages table doesn't exist, create it
-CREATE TABLE IF NOT EXISTS public.messages (
+-- Create messages table with correct column names
+CREATE TABLE public.messages (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
   thread_id uuid,
-  sender_name text NOT NULL,
+  name text NOT NULL,
   sender_email text NOT NULL,
   message text NOT NULL,
   admin_reply text,
@@ -25,19 +16,19 @@ CREATE TABLE IF NOT EXISTS public.messages (
   updated_at timestamp DEFAULT now()
 );
 
--- Create indexes
-CREATE INDEX IF NOT EXISTS idx_messages_thread_id ON public.messages(thread_id);
-CREATE INDEX IF NOT EXISTS idx_messages_email ON public.messages(email);
-CREATE INDEX IF NOT EXISTS idx_messages_created_at ON public.messages(created_at DESC);
+-- Create indexes for fast queries
+CREATE INDEX idx_messages_thread_id ON public.messages(thread_id);
+CREATE INDEX idx_messages_sender_email ON public.messages(sender_email);
+CREATE INDEX idx_messages_created_at ON public.messages(created_at DESC);
 
 -- Enable RLS
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
 
--- Allow insert
+-- Allow insert for anyone (contact form submissions)
 CREATE POLICY "Allow insert messages" ON public.messages
   FOR INSERT WITH CHECK (true);
 
--- Allow select
+-- Allow select for anyone
 CREATE POLICY "Allow select messages" ON public.messages
   FOR SELECT USING (true);
 

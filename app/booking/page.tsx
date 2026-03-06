@@ -52,7 +52,7 @@ function BookingPageContent() {
   const [guests, setGuests] = useState('2')
   const [selectedServices, setSelectedServices] = useState<number[]>([])
   const [item, setItem] = useState<BookableItem | null>(null)
-  const [loading, setLoading] = useState(!id)
+  const [loading, setLoading] = useState(!!id) // Start loading if id exists
   const [error, setError] = useState<string | null>(null)
   const [paymentMethod, setPaymentMethod] = useState('card')
   const [cardNumber, setCardNumber] = useState('')
