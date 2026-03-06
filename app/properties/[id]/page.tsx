@@ -6,6 +6,8 @@ import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { PropertyGallery } from '@/components/properties/property-gallery'
 import { RelatedProperties } from '@/components/properties/related-properties'
+import { ReviewsList } from '@/components/reviews/reviews-list'
+import { ReviewForm } from '@/components/reviews/review-form'
 import { formatPrice } from '@/lib/utils/currency'
 import { SAMPLE_PROPERTIES } from '@/lib/constants/rwanda-data'
 import {
@@ -284,6 +286,25 @@ export default function PropertyDetailsPage({ params }: { params: Promise<{ id: 
           </div>
         </div>
       </div>
+
+      {/* Reviews Section */}
+      <section className="py-16 border-t border-border">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+            <div>
+              <h2 className="text-2xl font-serif font-bold text-foreground mb-6">Guest Reviews</h2>
+              <ReviewsList itemId={String(property.id)} itemType="property" />
+            </div>
+            <div>
+              <ReviewForm
+                itemId={String(property.id)}
+                itemType="property"
+                itemName={property.name}
+              />
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Related Properties */}
       <RelatedProperties

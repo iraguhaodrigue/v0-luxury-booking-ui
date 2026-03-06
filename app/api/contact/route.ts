@@ -28,55 +28,47 @@ export async function POST(request: NextRequest) {
     logger.info('Processing contact form', { name, email })
     const supabase = await createClient()
 
-    // Check if this is a reply or a new message (for thread linking)
-    const { data: existingThread } = await supabase
+    // Find the first message in this email's thread to use as thread_id
+    const { data: existingRoot } = await supabase
       .from('messages')
-      .select('thread_id')
-      .eq('sender_email', email.trim())
-      .order('created_at', { ascending: false })
+      .select('id, thread_id')
+      .eq('sender_email', email.trim().toLowerCase())
+      .eq('sender_role', 'customer')
+      .order('created_at', { ascending: true })
       .limit(1)
 
-    const threadId = existingThread?.[0]?.thread_id
+    const threadId = existingRoot?.[0]?.thread_id ?? existingRoot?.[0]?.id ?? null
 
-    // Insert into messages table with correct column names
     const { data, error: insertError } = await supabase
       .from('messages')
       .insert({
-        thread_id: threadId || undefined,
-        name: name.trim(),
-        sender_email: email.trim(),
-        message: message.trim(),
+        thread_id:     threadId,
+        name:          name.trim(),
+        sender_email:  email.trim().toLowerCase(),
+        message:       message.trim(),
+        sender_role:   'customer',
         read_by_admin: false,
       })
-      .select()
+      .select('id')
+      .single()
 
-    if (insertError) {
-      logger.error('Database insert error', { code: insertError.code, message: insertError.message })
+    if (insertError || !data) {
+      logger.error('Database insert error', { code: insertError?.code, message: insertError?.message })
       return NextResponse.json(
-        { error: `Failed to save message: ${insertError.message}` },
+        { error: `Failed to save message: ${insertError?.message}` },
         { status: 500 }
       )
     }
 
-    const messageId = data?.[0]?.id
-    const finalThreadId = threadId || messageId
-
-    // If this is the first message in thread, set thread_id to message id
-    if (!threadId && messageId) {
-      await supabase
-        .from('messages')
-        .update({ thread_id: messageId })
-        .eq('id', messageId)
+    // If this is the very first message, set its own id as thread_id
+    if (!threadId) {
+      await supabase.from('messages').update({ thread_id: data.id }).eq('id', data.id)
     }
 
-    logger.success('Contact message saved', { email, messageId, threadId: finalThreadId })
+    logger.success('Contact message saved', { email, messageId: data.id })
 
     return NextResponse.json(
-      { 
-        success: true,
-        message: 'Thank you for your message. We will respond shortly.',
-        messageId: data?.[0]?.id
-      },
+      { success: true, message: 'Message sent successfully.', messageId: data.id },
       { status: 200 }
     )
   } catch (error: any) {
