@@ -24,22 +24,39 @@ const bookingSteps = [
 ]
 
 interface BookableItem {
-  id: number | string
+  // Shared
+  id: number
   name: string
   description?: string | null
-  images?: string[]
-  image?: string
-  base_price_per_night?: number
-  price_per_day?: number
-  price?: number
+  
+  // Properties
   location?: string
-  capacity?: number
-  seats?: number
-  transmission?: string
-  fuel_type?: string
+  city?: string
+  country?: string
+  total_rooms?: number
+  base_price_per_night?: number
+  images?: string[] | string
+  amenities?: string[]
+  
+  // Cars
   make?: string
   model?: string
   year?: number
+  capacity?: number
+  transmission?: string
+  fuel_type?: string
+  price_per_day?: number
+  image_url?: string
+  license_plate?: string
+  color?: string
+  status?: string
+  mileage_limit?: number
+  
+  // Services
+  price_per_day?: number
+  service_type?: string
+  category?: string
+  max_guests_per_day?: number
 }
 
 function BookingPageContent() {
@@ -89,56 +106,53 @@ function BookingPageContent() {
     setLoading(true)
     setError(null)
     try {
-      // All three tables use integer (int4) primary keys — convert the URL
-      // string to a number so Supabase can match the row correctly.
+      // All three tables use integer (int4) primary keys — convert the URL string to a number
       const numericId = Number(id)
       if (!id || isNaN(numericId) || numericId <= 0) {
         setError('Invalid item ID.')
         return
       }
 
-      console.log('[v0] Booking fetch — type:', type, '| id:', numericId)
-
       const supabase = createClient()
       let query
 
       if (type === 'car') {
+        // Cars table: id, make, model, year, license_plate, color, capacity, transmission, fuel_type, price_per_day, images, status, mileage_limit
         query = supabase
           .from('cars')
-          .select('id,make,model,year,price_per_day,seats,transmission,fuel_type,images,description')
+          .select('id,make,model,year,capacity,transmission,fuel_type,price_per_day,image_url,images,status,color,license_plate,mileage_limit,description')
           .eq('id', numericId)
       } else if (type === 'service') {
-        // Column is price_per_day (not price) — select it explicitly
+        // Services table: id, name, description, price_per_day, image_url, service_type, category, max_guests_per_day, is_active
         query = supabase
           .from('services')
-          .select('id,name,price_per_day,description,image')
+          .select('id,name,description,price_per_day,image_url,service_type,category,max_guests_per_day,is_active')
           .eq('id', numericId)
       } else {
+        // Properties table: id, owner_id, name, description, location, city, country, property_type, total_rooms, amenities, base_price_per_night, currency, images, is_active
         query = supabase
           .from('properties')
-          .select('id,name,base_price_per_night,description,images,location,capacity')
+          .select('id,name,description,location,city,country,property_type,total_rooms,amenities,base_price_per_night,currency,images,is_active')
           .eq('id', numericId)
       }
 
       const { data, error: fetchError } = await query.single()
 
-      console.log('[v0] Fetch result — data:', data, '| error:', fetchError)
-
       if (fetchError || !data) {
         setError(`Could not load ${type} details. (${fetchError?.message ?? 'not found'})`)
       } else {
-        // Normalise car name from make/model/year fields
+        // Normalize car name from make/model/year
         if (type === 'car') {
           const car = data as any
-          setItem({ ...car, name: `${car.year ?? ''} ${car.make ?? ''} ${car.model ?? ''}`.trim() } as BookableItem)
-        } else if (type === 'service') {
-          // Map price_per_day → price_per_day so baseRate calc can read it
-          setItem(data as BookableItem)
+          setItem({ 
+            ...car, 
+            name: `${car.year ?? ''} ${car.make ?? ''} ${car.model ?? ''}`.trim() 
+          } as BookableItem)
         } else {
           setItem(data as BookableItem)
         }
       }
-    } catch {
+    } catch (err) {
       setError('Failed to load item details.')
     } finally {
       setLoading(false)
