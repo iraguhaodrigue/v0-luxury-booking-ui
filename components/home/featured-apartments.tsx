@@ -33,7 +33,6 @@ export function FeaturedApartments() {
         if (data && data.length > 0) {
           setApartments(data)
         } else {
-          console.log('[v0] No apartments found in database')
           setApartments([])
         }
       } catch (error) {

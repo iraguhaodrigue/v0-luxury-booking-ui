@@ -4,6 +4,7 @@ import { CarCard } from '@/components/cars/car-card'
 import { createClient } from '@/lib/supabase/server'
 import { logger } from '@/lib/utils/logger'
 import { querySelectors } from '@/lib/utils/query-optimizations'
+import { Car, UserCheck, ShieldCheck } from 'lucide-react'
 
 async function fetchCars() {
   try {
@@ -102,10 +103,10 @@ export default async function CarRentalPage() {
             Why Choose Our Car Rental?
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🚗</span>
+                <Car className="w-8 h-8 text-accent" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">
                 Premium Fleet
@@ -117,7 +118,7 @@ export default async function CarRentalPage() {
 
             <div className="text-center">
               <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">👔</span>
+                <UserCheck className="w-8 h-8 text-accent" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">
                 Professional Drivers
@@ -129,7 +130,7 @@ export default async function CarRentalPage() {
 
             <div className="text-center">
               <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🛡️</span>
+                <ShieldCheck className="w-8 h-8 text-accent" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">
                 Complete Coverage

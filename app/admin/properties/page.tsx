@@ -164,10 +164,7 @@ export default function PropertiesPage() {
                         <TableRow key={item.id}>
                           <TableCell>
                             {item.images && item.images.length > 0 && item.images[0] ? (
-                              <img src={item.images[0]} alt={item.name} className="h-12 w-16 object-cover rounded" onError={(e) => {
-                                console.log("[v0] Image failed to load:", item.images[0])
-                                e.currentTarget.style.display = 'none'
-                              }} />
+                            <img src={item.images[0]} alt={item.name} className="h-12 w-16 object-cover rounded" />
                             ) : (
                               <div className="h-12 w-16 bg-muted rounded flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>
                             )}

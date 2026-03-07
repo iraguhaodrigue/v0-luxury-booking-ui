@@ -57,7 +57,6 @@ export default function NotificationsPage() {
     const messageSubscription = supabase
       .channel('messages')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'messages' }, (payload) => {
-        console.log('[v0] New contact message received:', payload)
         setContactMessages((prev) => [payload.new as ContactMessage, ...prev])
       })
       .subscribe()
@@ -66,7 +65,6 @@ export default function NotificationsPage() {
     const bookingSubscription = supabase
       .channel('bookings')
       .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'bookings' }, (payload) => {
-        console.log('[v0] New booking received:', payload)
         setBookings((prev) => [payload.new as BookingNotification, ...prev])
       })
       .subscribe()
@@ -103,27 +101,22 @@ export default function NotificationsPage() {
 
   const fetchContactMessages = async () => {
     try {
-      console.log('[v0] Fetching contact messages')
       const supabase = createClient()
       const { data, error } = await supabase
         .from('messages')
         .select('*')
         .order('created_at', { ascending: false })
 
-      if (error) {
-        console.error('[v0] Error fetching messages:', error.message)
-        return
-      }
+      if (error) return
 
       setContactMessages(data || [])
-    } catch (error) {
-      console.error('[v0] Exception fetching messages:', error)
+    } catch {
+      // silent
     }
   }
 
   const fetchBookings = async () => {
     try {
-      console.log('[v0] Fetching bookings')
       const supabase = createClient()
       const { data, error } = await supabase
         .from('bookings')
@@ -131,7 +124,6 @@ export default function NotificationsPage() {
         .order('created_at', { ascending: false })
 
       if (error) {
-        console.error('[v0] Error fetching bookings:', error.message)
         return
       }
 

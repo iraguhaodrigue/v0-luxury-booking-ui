@@ -34,12 +34,10 @@ export function PropertyGrid() {
           setAllProperties(data)
           setFilteredProperties(data)
         } else {
-          console.log('[v0] No properties found in database')
           setAllProperties([])
           setFilteredProperties([])
         }
-      } catch (error) {
-        console.error('[v0] Error fetching properties:', error)
+      } catch {
         setAllProperties([])
         setFilteredProperties([])
       } finally {

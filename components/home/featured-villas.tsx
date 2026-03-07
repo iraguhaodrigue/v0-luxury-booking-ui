@@ -33,7 +33,6 @@ export function FeaturedVillas() {
         if (data && data.length > 0) {
           setVillas(data)
         } else {
-          console.log('[v0] No villas found in database')
           setVillas([])
         }
       } catch (error) {
