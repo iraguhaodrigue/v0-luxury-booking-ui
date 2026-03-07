@@ -86,7 +86,19 @@ function BookingPageContent() {
   }, [id, type])
 
   const fetchItem = async () => {
+    setLoading(true)
+    setError(null)
     try {
+      // All three tables use integer (int4) primary keys — convert the URL
+      // string to a number so Supabase can match the row correctly.
+      const numericId = Number(id)
+      if (!id || isNaN(numericId) || numericId <= 0) {
+        setError('Invalid item ID.')
+        return
+      }
+
+      console.log('[v0] Booking fetch — type:', type, '| id:', numericId)
+
       const supabase = createClient()
       let query
 
@@ -94,29 +106,37 @@ function BookingPageContent() {
         query = supabase
           .from('cars')
           .select('id,make,model,year,price_per_day,seats,transmission,fuel_type,images,description')
-          .eq('id', id!)
+          .eq('id', numericId)
       } else if (type === 'service') {
+        // Column is price_per_day (not price) — select it explicitly
         query = supabase
           .from('services')
-          .select('id,name,price,description')
-          .eq('id', id!)
+          .select('id,name,price_per_day,description,image')
+          .eq('id', numericId)
       } else {
         query = supabase
           .from('properties')
           .select('id,name,base_price_per_night,description,images,location,capacity')
-          .eq('id', id!)
+          .eq('id', numericId)
       }
 
       const { data, error: fetchError } = await query.single()
 
+      console.log('[v0] Fetch result — data:', data, '| error:', fetchError)
+
       if (fetchError || !data) {
-        setError(`Could not load ${type} details.`)
+        setError(`Could not load ${type} details. (${fetchError?.message ?? 'not found'})`)
       } else {
-        // Normalise car name
-        const normalised = type === 'car'
-          ? { ...data, name: `${data.year ?? ''} ${data.make ?? ''} ${data.model ?? ''}`.trim() }
-          : data
-        setItem(normalised as BookableItem)
+        // Normalise car name from make/model/year fields
+        if (type === 'car') {
+          const car = data as any
+          setItem({ ...car, name: `${car.year ?? ''} ${car.make ?? ''} ${car.model ?? ''}`.trim() } as BookableItem)
+        } else if (type === 'service') {
+          // Map price_per_day → price_per_day so baseRate calc can read it
+          setItem(data as BookableItem)
+        } else {
+          setItem(data as BookableItem)
+        }
       }
     } catch {
       setError('Failed to load item details.')
@@ -137,7 +157,8 @@ function BookingPageContent() {
     if (!item) return 0
     if (type === 'property') return item.base_price_per_night ?? 0
     if (type === 'car')      return item.price_per_day ?? 0
-    return item.price ?? item.price_per_day ?? 0
+    // service: price_per_day is the correct column name
+    return item.price_per_day ?? item.price ?? 0
   })()
 
   const itemTotal     = baseRate * (nights || 1)

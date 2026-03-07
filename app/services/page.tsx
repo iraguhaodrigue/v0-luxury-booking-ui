@@ -68,11 +68,11 @@ export default async function ServicesPage() {
               services.map((service: any) => (
                 <ServiceCard
                   key={service.id}
+                  id={service.id}
                   title={service.name}
                   description={service.description || 'Premium service'}
                   price={service.price_per_day || 0}
                   duration="Per day"
-                  icon={service.service_type}
                 />
               ))
             ) : (
