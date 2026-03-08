@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react'
 import { PropertyCard } from './property-card'
 import { FilterSidebar } from './filter-sidebar'
-import { SAMPLE_PROPERTIES } from '@/lib/constants/rwanda-data'
 import { createClient } from '@/lib/supabase/client'
 
 interface Property {
@@ -35,15 +34,12 @@ export function PropertyGrid() {
           setAllProperties(data)
           setFilteredProperties(data)
         } else {
-          // Fallback to sample data
-          setAllProperties(SAMPLE_PROPERTIES as any)
-          setFilteredProperties(SAMPLE_PROPERTIES as any)
+          setAllProperties([])
+          setFilteredProperties([])
         }
-      } catch (error) {
-        console.error('Error fetching properties:', error)
-        // Fallback to sample data on error
-        setAllProperties(SAMPLE_PROPERTIES as any)
-        setFilteredProperties(SAMPLE_PROPERTIES as any)
+      } catch {
+        setAllProperties([])
+        setFilteredProperties([])
       } finally {
         setLoading(false)
       }

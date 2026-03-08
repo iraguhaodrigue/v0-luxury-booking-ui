@@ -71,7 +71,6 @@ export function Navbar() {
     { href: '/services', label: 'Services' },
     { href: '/car-rental', label: 'Car Rental' },
     { href: '/contact', label: 'Contact' },
-    { href: '/about', label: 'About' },
   ]
 
   return (

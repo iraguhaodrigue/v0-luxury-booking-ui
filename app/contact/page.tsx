@@ -1,60 +1,139 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Textarea } from '@/components/ui/textarea'
-import { MapPin, Phone, Mail, Clock } from 'lucide-react'
+import { MapPin, Phone, Mail, Clock, Send, Loader2, CheckCheck, MessageSquare } from 'lucide-react'
+import { createClient } from '@/lib/supabase/client'
+
+interface DbMessage {
+  id: string
+  name: string
+  sender_email: string
+  message: string
+  sender_role: 'customer' | 'admin'
+  created_at: string
+}
+
+const CONTACT_INFO = [
+  {
+    Icon: MapPin,
+    label: 'Address',
+    lines: ['KN 7, Kacyiru', 'Kigali, Rwanda'],
+  },
+  {
+    Icon: Phone,
+    label: 'Phone',
+    lines: ['+250 788 123 456', '+250 700 123 456'],
+  },
+  {
+    Icon: Mail,
+    label: 'Email',
+    lines: ['info@rwandaluxury.com', 'bookings@rwandaluxury.com'],
+  },
+  {
+    Icon: Clock,
+    label: 'Business Hours',
+    lines: ['Mon – Fri: 8:00 AM – 6:00 PM', 'Sat – Sun: 10:00 AM – 4:00 PM'],
+  },
+]
 
 export default function ContactPage() {
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    subject: '',
-    message: '',
-  })
-  const [submitted, setSubmitted] = useState(false)
-  const [loading, setLoading] = useState(false)
+  // Identity — persisted per session so thread loads on re-visit
+  const [name,   setName]   = useState('')
+  const [email,  setEmail]  = useState('')
+  const [phone,  setPhone]  = useState('')
 
-  const handleChange = (e: any) => {
-    const { name, value } = e.target
-    setFormData((prev) => ({ ...prev, [name]: value }))
+  // Current message being typed
+  const [body,      setBody]      = useState('')
+  const [sending,   setSending]   = useState(false)
+  const [sendError, setSendError] = useState<string | null>(null)
+
+  // Thread display
+  const [thread,    setThread]    = useState<DbMessage[]>([])
+  const [loading,   setLoading]   = useState(false)
+  const [chatOpen,  setChatOpen]  = useState(false)
+
+  const bottomRef = useRef<HTMLDivElement>(null)
+
+  // Poll for admin replies every 15 s once chat is open
+  useEffect(() => {
+    if (!chatOpen || !email) return
+    loadThread(email)
+    const id = setInterval(() => loadThread(email), 15_000)
+    return () => clearInterval(id)
+  }, [chatOpen, email])
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [thread])
+
+  const loadThread = async (senderEmail: string) => {
+    const supabase = createClient()
+    const { data } = await supabase
+      .from('messages')
+      .select('id,name,sender_email,message,sender_role,created_at')
+      .eq('sender_email', senderEmail.trim().toLowerCase())
+      .order('created_at', { ascending: true })
+    if (data) setThread(data as DbMessage[])
   }
 
-  const handleSubmit = async (e: any) => {
+  const handleOpenChat = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!formData.name || !formData.email || !formData.subject || !formData.message) {
-      alert('Please fill in all required fields')
+    setSendError(null)
+    if (!name.trim() || !email.trim()) {
+      setSendError('Please enter your name and email to continue.')
       return
     }
     setLoading(true)
+    await loadThread(email)
+    setLoading(false)
+    setChatOpen(true)
+  }
 
-    try {
-      console.log('[v0] Sending contact message:', formData)
-      const response = await fetch('/api/contact', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData),
+  const handleSend = async () => {
+    setSendError(null)
+    if (!body.trim()) return
+
+    setSending(true)
+    const supabase = createClient()
+
+    // Determine thread_id: use the id of the first message in the thread
+    const firstMsg = thread.find(m => m.sender_role === 'customer')
+
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        thread_id:    firstMsg?.id ?? null,
+        name:         name.trim(),
+        sender_email: email.trim().toLowerCase(),
+        message:      body.trim(),
+        sender_role:  'customer',
+        read_by_admin: false,
       })
+      .select()
+      .single()
 
-      const data = await response.json()
-      console.log('[v0] Contact response:', data)
-
-      if (response.ok) {
-        setSubmitted(true)
-        setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
-        setTimeout(() => setSubmitted(false), 5000)
-      } else {
-        alert('Failed to send message. Please try again.')
+    if (error) {
+      setSendError('Failed to send your message. Please try again.')
+    } else {
+      setThread(prev => [...prev, data as DbMessage])
+      setBody('')
+      // Update thread_id on first message if this is the very first
+      if (!firstMsg && data) {
+        await supabase.from('messages').update({ thread_id: data.id }).eq('id', data.id)
       }
-    } catch (error) {
-      console.error('[v0] Error submitting form:', error)
-      alert('Error sending message. Please try again.')
-    } finally {
-      setLoading(false)
+    }
+    setSending(false)
+  }
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault()
+      handleSend()
     }
   }
 
@@ -62,193 +141,178 @@ export default function ContactPage() {
     <main className="w-full">
       <Navbar />
 
-      {/* Hero Section */}
-      <section className="bg-secondary py-12 md:py-16">
+      {/* Hero */}
+      <section className="bg-secondary py-12 md:py-16 border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <p className="text-accent text-sm font-semibold mb-2 tracking-widest">GET IN TOUCH</p>
-          <h1 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-4">
-            Contact Us
-          </h1>
+          <p className="text-accent text-xs font-semibold mb-2 tracking-widest uppercase">Get in Touch</p>
+          <h1 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-4">Contact Us</h1>
           <p className="text-lg text-muted-foreground max-w-2xl">
-            Have questions about our luxury properties or services? We're here to help. Reach out to our team and we'll respond as soon as possible.
+            Have questions about our luxury properties or services? Reach out and our team will respond promptly.
           </p>
         </div>
       </section>
 
-      {/* Main Content */}
+      {/* Main */}
       <section className="py-16 md:py-24">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-12">
-            {/* Contact Information */}
+
+            {/* Contact info column */}
             <div className="lg:col-span-1">
               <h2 className="text-2xl font-serif font-bold text-foreground mb-8">Contact Information</h2>
-
               <div className="space-y-8">
-                {/* Address */}
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <MapPin className="w-6 h-6 text-accent mt-1" />
+                {CONTACT_INFO.map(({ Icon, label, lines }) => (
+                  <div key={label} className="flex gap-4">
+                    <div className="flex-shrink-0">
+                      <Icon className="w-6 h-6 text-accent mt-0.5" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground mb-1">{label}</h3>
+                      {lines.map(line => (
+                        <p key={line} className="text-muted-foreground">{line}</p>
+                      ))}
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-1">Address</h3>
-                    <p className="text-muted-foreground">
-                      KN 7, Kacyiru<br />
-                      Kigali, Rwanda
-                    </p>
-                  </div>
-                </div>
-
-                {/* Phone */}
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <Phone className="w-6 h-6 text-accent mt-1" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-1">Phone</h3>
-                    <p className="text-muted-foreground">
-                      +250 788 123 456<br />
-                      +250 700 123 456
-                    </p>
-                  </div>
-                </div>
-
-                {/* Email */}
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <Mail className="w-6 h-6 text-accent mt-1" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-1">Email</h3>
-                    <p className="text-muted-foreground">
-                      info@rwandaluxury.com<br />
-                      bookings@rwandaluxury.com
-                    </p>
-                  </div>
-                </div>
-
-                {/* Hours */}
-                <div className="flex gap-4">
-                  <div className="flex-shrink-0">
-                    <Clock className="w-6 h-6 text-accent mt-1" />
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground mb-1">Business Hours</h3>
-                    <p className="text-muted-foreground">
-                      Mon - Fri: 8:00 AM - 6:00 PM<br />
-                      Sat - Sun: 10:00 AM - 4:00 PM
-                    </p>
-                  </div>
-                </div>
+                ))}
               </div>
             </div>
 
-            {/* Contact Form */}
+            {/* Messaging column */}
             <div className="lg:col-span-2">
-              <div className="bg-secondary rounded-lg p-8">
-                <h2 className="text-2xl font-serif font-bold text-foreground mb-6">Send us a Message</h2>
 
-                {submitted && (
-                  <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg">
-                    <p className="text-green-700">Thank you! We've received your message and will respond shortly.</p>
-                  </div>
-                )}
+              {!chatOpen ? (
+                /* ── Identity form (step 1) ── */
+                <div className="bg-secondary rounded-2xl p-8">
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-2">Start a Conversation</h2>
+                  <p className="text-muted-foreground mb-6 text-sm">
+                    Enter your details to open a message thread with our team. Existing conversations will be loaded automatically.
+                  </p>
 
-                <form onSubmit={handleSubmit} className="space-y-6">
-                  {/* Name */}
-                  <div>
-                    <label htmlFor="name" className="block text-sm font-medium text-foreground mb-2">
-                      Full Name *
-                    </label>
-                    <Input
-                      id="name"
-                      name="name"
-                      type="text"
-                      required
-                      value={formData.name}
-                      onChange={handleChange}
-                      placeholder="Your name"
-                      className="w-full"
-                    />
-                  </div>
+                  <form onSubmit={handleOpenChat} className="space-y-5">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Full Name <span className="text-red-500">*</span></label>
+                        <Input
+                          placeholder="Jane Doe"
+                          value={name}
+                          onChange={e => setName(e.target.value)}
+                          required
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-foreground mb-2">Email Address <span className="text-red-500">*</span></label>
+                        <Input
+                          type="email"
+                          placeholder="jane@example.com"
+                          value={email}
+                          onChange={e => setEmail(e.target.value)}
+                          required
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Phone (optional)</label>
+                      <Input
+                        type="tel"
+                        placeholder="+250 788 000 000"
+                        value={phone}
+                        onChange={e => setPhone(e.target.value)}
+                      />
+                    </div>
 
-                  {/* Email */}
-                  <div>
-                    <label htmlFor="email" className="block text-sm font-medium text-foreground mb-2">
-                      Email Address *
-                    </label>
-                    <Input
-                      id="email"
-                      name="email"
-                      type="email"
-                      required
-                      value={formData.email}
-                      onChange={handleChange}
-                      placeholder="your@email.com"
-                      className="w-full"
-                    />
-                  </div>
+                    {sendError && (
+                      <p className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-lg px-4 py-2">{sendError}</p>
+                    )}
 
-                  {/* Phone */}
-                  <div>
-                    <label htmlFor="phone" className="block text-sm font-medium text-foreground mb-2">
-                      Phone Number
-                    </label>
-                    <Input
-                      id="phone"
-                      name="phone"
-                      type="tel"
-                      value={formData.phone}
-                      onChange={handleChange}
-                      placeholder="+250 700 000 000"
-                      className="w-full"
-                    />
-                  </div>
-
-                  {/* Subject */}
-                  <div>
-                    <label htmlFor="subject" className="block text-sm font-medium text-foreground mb-2">
-                      Subject *
-                    </label>
-                    <Input
-                      id="subject"
-                      name="subject"
-                      type="text"
-                      required
-                      value={formData.subject}
-                      onChange={handleChange}
-                      placeholder="How can we help?"
-                      className="w-full"
-                    />
+                    <Button type="submit" disabled={loading} className="w-full sm:w-auto">
+                      {loading
+                        ? <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Loading thread…</>
+                        : <><MessageSquare className="w-4 h-4 mr-2" />Open Chat</>
+                      }
+                    </Button>
+                  </form>
+                </div>
+              ) : (
+                /* ── Chat thread (step 2) ── */
+                <div className="rounded-2xl border border-border overflow-hidden flex flex-col" style={{ height: '600px' }}>
+                  {/* Thread header */}
+                  <div className="bg-secondary border-b border-border px-5 py-3 flex items-center justify-between">
+                    <div>
+                      <p className="font-semibold text-foreground text-sm">{name}</p>
+                      <p className="text-xs text-muted-foreground">{email}</p>
+                    </div>
+                    <button
+                      onClick={() => setChatOpen(false)}
+                      className="text-xs text-muted-foreground hover:text-foreground underline"
+                    >
+                      Change identity
+                    </button>
                   </div>
 
-                  {/* Message */}
-                  <div>
-                    <label htmlFor="message" className="block text-sm font-medium text-foreground mb-2">
-                      Message *
-                    </label>
-                    <Textarea
-                      id="message"
-                      name="message"
-                      required
-                      value={formData.message}
-                      onChange={handleChange}
-                      placeholder="Tell us more about your inquiry..."
-                      rows={6}
-                      className="w-full"
-                    />
+                  {/* Messages */}
+                  <div className="flex-1 overflow-y-auto px-5 py-4 space-y-3 bg-background">
+                    {thread.length === 0 && (
+                      <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
+                        <MessageSquare className="w-10 h-10 text-muted-foreground/30" />
+                        <p className="text-sm text-muted-foreground">No messages yet. Send your first message below.</p>
+                      </div>
+                    )}
+                    {thread.map(msg => {
+                      const isMe = msg.sender_role === 'customer'
+                      return (
+                        <div key={msg.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                          <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${
+                            isMe
+                              ? 'bg-accent text-accent-foreground rounded-br-sm'
+                              : 'bg-secondary border border-border text-foreground rounded-bl-sm'
+                          }`}>
+                            {!isMe && (
+                              <p className="text-xs font-semibold mb-1 text-accent">Support Team</p>
+                            )}
+                            <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                            <div className={`flex items-center justify-end gap-1 mt-1 ${isMe ? 'text-accent-foreground/70' : 'text-muted-foreground'}`}>
+                              <span className="text-xs">
+                                {new Date(msg.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                              </span>
+                              {isMe && <CheckCheck className="w-3 h-3" />}
+                            </div>
+                          </div>
+                        </div>
+                      )
+                    })}
+                    <div ref={bottomRef} />
                   </div>
 
-                  {/* Submit Button */}
-                  <Button
-                    type="submit"
-                    disabled={loading}
-                    className="w-full btn-luxury-primary"
-                  >
-                    {loading ? 'Sending...' : 'Send Message'}
-                  </Button>
-                </form>
-              </div>
+                  {/* Input */}
+                  <div className="border-t border-border px-5 py-3 bg-background">
+                    {sendError && (
+                      <p className="text-xs text-red-600 mb-2">{sendError}</p>
+                    )}
+                    <div className="flex gap-3 items-end">
+                      <Textarea
+                        placeholder="Type a message… (Enter to send)"
+                        value={body}
+                        onChange={e => setBody(e.target.value)}
+                        onKeyDown={handleKeyDown}
+                        rows={2}
+                        className="flex-1 resize-none"
+                      />
+                      <Button
+                        onClick={handleSend}
+                        disabled={sending || !body.trim()}
+                        className="h-10 px-4 flex-shrink-0"
+                      >
+                        {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+                      </Button>
+                    </div>
+                    <p className="text-xs text-muted-foreground mt-1.5">
+                      Replies from our team appear here automatically.
+                    </p>
+                  </div>
+                </div>
+              )}
             </div>
+
           </div>
         </div>
       </section>

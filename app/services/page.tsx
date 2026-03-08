@@ -3,8 +3,6 @@ import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { ServiceCard } from '@/components/services/service-card'
 import { createClient } from '@/lib/supabase/server'
-import { Loader2 } from 'lucide-react'
-import { SERVICES } from '@/lib/constants/rwanda-data'
 
 export const metadata = {
   title: 'Premium Services | Rwanda Luxury Hospitality',
@@ -20,15 +18,10 @@ async function fetchServices() {
       .select('*')
       .order('created_at', { ascending: false })
 
-    if (error) {
-      console.error('Error fetching services:', error)
-      return SERVICES
-    }
-
-    return data && data.length > 0 ? data : SERVICES
-  } catch (error) {
-    console.error('Error in fetchServices:', error)
-    return SERVICES
+    if (error || !data) return []
+    return data
+  } catch {
+    return []
   }
 }
 
@@ -75,11 +68,11 @@ export default async function ServicesPage() {
               services.map((service: any) => (
                 <ServiceCard
                   key={service.id}
+                  id={service.id}
                   title={service.name}
                   description={service.description || 'Premium service'}
                   price={service.price_per_day || 0}
                   duration="Per day"
-                  icon={service.service_type}
                 />
               ))
             ) : (
@@ -97,7 +90,7 @@ export default async function ServicesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div>
               <h3 className="font-serif font-bold text-2xl text-accent mb-2">
-                {services && services.length > 0 ? services.length : SERVICES.length}+
+                {services && services.length > 0 ? services.length : 0}+
               </h3>
               <p className="text-muted-foreground">Premium services available</p>
             </div>

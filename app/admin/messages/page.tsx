@@ -1,244 +1,286 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useRef } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { AdminSidebar } from '@/components/layouts/admin-sidebar'
-import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
-import { Badge } from '@/components/ui/badge'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Textarea } from '@/components/ui/textarea'
-import { Loader2, Send, Check } from 'lucide-react'
+import { Badge } from '@/components/ui/badge'
+import { Loader2, Send, MessageSquare, Mail, Clock, CheckCheck, User } from 'lucide-react'
+import { formatPrice } from '@/lib/utils/currency'
 
-interface Message {
-  id: number
-  sender_id: string
-  content: string
+interface DbMessage {
+  id: string
+  thread_id: string | null
+  name: string
+  sender_email: string
+  message: string
+  sender_role: 'customer' | 'admin'
+  read_by_admin: boolean
   created_at: string
-  sender_email?: string
 }
 
-interface MessageThread {
-  id: number
-  user_id: string
-  subject: string
-  status: string
-  created_at: string
-  messages?: Message[]
-  user_email?: string
+interface Thread {
+  email: string
+  name: string
+  latest: string
+  unread: number
+  messages: DbMessage[]
 }
 
-export default function MessagesPage() {
-  const [threads, setThreads] = useState<MessageThread[]>([])
-  const [loading, setLoading] = useState(true)
-  const [selectedThread, setSelectedThread] = useState<MessageThread | null>(null)
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [replyText, setReplyText] = useState('')
-  const [sending, setSending] = useState(false)
+function groupByThread(rows: DbMessage[]): Thread[] {
+  const map = new Map<string, Thread>()
+  for (const row of rows) {
+    const key = row.sender_email.toLowerCase()
+    if (!map.has(key)) {
+      map.set(key, { email: row.sender_email, name: row.name, latest: row.created_at, unread: 0, messages: [] })
+    }
+    const t = map.get(key)!
+    t.messages.push(row)
+    if (row.created_at > t.latest) { t.latest = row.created_at; t.name = row.name }
+    if (!row.read_by_admin && row.sender_role === 'customer') t.unread++
+  }
+  return [...map.values()].sort((a, b) => b.latest.localeCompare(a.latest))
+}
+
+export default function AdminMessagesPage() {
+  const [threads, setThreads]     = useState<Thread[]>([])
+  const [active,  setActive]      = useState<Thread | null>(null)
+  const [reply,   setReply]       = useState('')
+  const [sending, setSending]     = useState(false)
+  const [loading, setLoading]     = useState(true)
+  const bottomRef                 = useRef<HTMLDivElement>(null)
+
+  const supabase = createClient()
+
+  useEffect(() => { loadMessages() }, [])
 
   useEffect(() => {
-    fetchThreads()
-  }, [])
+    bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
+  }, [active?.messages])
 
-  const fetchThreads = async () => {
-    try {
-      setLoading(true)
-      const supabase = createClient()
+  const loadMessages = async () => {
+    setLoading(true)
+    const { data, error } = await supabase
+      .from('messages')
+      .select('*')
+      .order('created_at', { ascending: true })
 
-      const { data, error } = await supabase
-        .from('message_threads')
-        .select('*')
-        .order('created_at', { ascending: false })
-
-      if (error) throw error
-
-      setThreads(data || [])
-    } catch (error) {
-      console.error('Error fetching messages:', error)
-    } finally {
-      setLoading(false)
+    if (!error && data) {
+      const grouped = groupByThread(data as DbMessage[])
+      setThreads(grouped)
+      // Re-hydrate active thread
+      if (active) {
+        const refreshed = grouped.find(t => t.email === active.email)
+        if (refreshed) setActive(refreshed)
+      }
     }
+    setLoading(false)
   }
 
-  const loadThreadMessages = async (thread: MessageThread) => {
-    try {
-      const supabase = createClient()
+  const openThread = async (thread: Thread) => {
+    setActive(thread)
+    setReply('')
 
-      const { data: messagesData, error } = await supabase
+    // Mark all customer messages in this thread as read
+    const unreadIds = thread.messages
+      .filter(m => !m.read_by_admin && m.sender_role === 'customer')
+      .map(m => m.id)
+
+    if (unreadIds.length > 0) {
+      await supabase
         .from('messages')
-        .select('*')
-        .eq('thread_id', thread.id)
-        .order('created_at', { ascending: true })
+        .update({ read_by_admin: true })
+        .in('id', unreadIds)
 
-      if (error) throw error
-
-      setSelectedThread({ ...thread, messages: messagesData || [] })
-      setDialogOpen(true)
-    } catch (error) {
-      console.error('Error loading messages:', error)
+      setThreads(prev =>
+        prev.map(t =>
+          t.email === thread.email
+            ? { ...t, unread: 0, messages: t.messages.map(m => ({ ...m, read_by_admin: true })) }
+            : t
+        )
+      )
     }
   }
 
   const sendReply = async () => {
-    if (!selectedThread || !replyText.trim()) return
+    if (!active || !reply.trim()) return
+    setSending(true)
 
-    try {
-      setSending(true)
-      const supabase = createClient()
-      const { data: { user } } = await supabase.auth.getUser()
+    // The thread root is the first customer message
+    const root = active.messages.find(m => m.sender_role === 'customer')
 
-      if (!user) return
+    const { data, error } = await supabase
+      .from('messages')
+      .insert({
+        thread_id:    root?.thread_id ?? root?.id ?? null,
+        name:         'Support Team',
+        sender_email: active.email,
+        message:      reply.trim(),
+        sender_role:  'admin',
+        read_by_admin: true,
+      })
+      .select()
+      .single()
 
-      const { error: messageError } = await supabase
-        .from('messages')
-        .insert({
-          thread_id: selectedThread.id,
-          sender_id: user.id,
-          content: replyText
-        })
-
-      if (messageError) throw messageError
-
-      const { error: updateError } = await supabase
-        .from('message_threads')
-        .update({ status: 'in_progress', updated_at: new Date().toISOString() })
-        .eq('id', selectedThread.id)
-
-      if (updateError) throw updateError
-
-      setReplyText('')
-      await loadThreadMessages(selectedThread)
-      await fetchThreads()
-    } catch (error) {
-      console.error('Error sending reply:', error)
-    } finally {
-      setSending(false)
+    if (!error && data) {
+      const newMsg = data as DbMessage
+      setActive(prev => prev ? { ...prev, messages: [...prev.messages, newMsg] } : prev)
+      setThreads(prev =>
+        prev.map(t =>
+          t.email === active.email
+            ? { ...t, latest: newMsg.created_at, messages: [...t.messages, newMsg] }
+            : t
+        ).sort((a, b) => b.latest.localeCompare(a.latest))
+      )
+      setReply('')
     }
+
+    setSending(false)
   }
 
-  const markAsResolved = async (thread: MessageThread) => {
-    try {
-      const supabase = createClient()
-
-      const { error } = await supabase
-        .from('message_threads')
-        .update({ status: 'closed', updated_at: new Date().toISOString() })
-        .eq('id', thread.id)
-
-      if (error) throw error
-
-      setThreads(threads.map(t => t.id === thread.id ? { ...t, status: 'closed' } : t))
-      setDialogOpen(false)
-    } catch (error) {
-      console.error('Error marking as resolved:', error)
-    }
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) sendReply()
   }
+
+  const totalUnread = threads.reduce((s, t) => s + t.unread, 0)
 
   return (
-    <div className="flex min-h-screen flex-col md:flex-row bg-background">
+    <div className="flex min-h-screen bg-background">
       <AdminSidebar />
-      <main className="flex-1 p-4 sm:p-6 lg:p-8 overflow-y-auto">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <h1 className="text-3xl font-serif font-bold text-foreground">Customer Messages</h1>
-            <p className="text-muted-foreground mt-2">Manage customer inquiries and messages</p>
+
+      <div className="flex-1 flex flex-col overflow-hidden">
+        {/* Header */}
+        <div className="border-b border-border px-6 py-4 flex items-center gap-3">
+          <MessageSquare className="w-5 h-5 text-accent" />
+          <h1 className="text-xl font-serif font-bold text-foreground">Customer Messages</h1>
+          {totalUnread > 0 && (
+            <Badge className="bg-accent text-accent-foreground">{totalUnread} unread</Badge>
+          )}
+        </div>
+
+        <div className="flex flex-1 overflow-hidden">
+          {/* ── Thread list ── */}
+          <div className="w-full max-w-xs border-r border-border flex flex-col overflow-hidden">
+            <div className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
+              Conversations ({threads.length})
+            </div>
+
+            {loading ? (
+              <div className="flex items-center justify-center flex-1">
+                <Loader2 className="w-6 h-6 animate-spin text-accent" />
+              </div>
+            ) : threads.length === 0 ? (
+              <div className="flex flex-col items-center justify-center flex-1 gap-2 px-4 text-center">
+                <Mail className="w-8 h-8 text-muted-foreground/50" />
+                <p className="text-sm text-muted-foreground">No messages yet</p>
+              </div>
+            ) : (
+              <div className="flex-1 overflow-y-auto">
+                {threads.map(thread => (
+                  <button
+                    key={thread.email}
+                    onClick={() => openThread(thread)}
+                    className={`w-full text-left px-4 py-3 border-b border-border/60 hover:bg-accent/5 transition-colors ${
+                      active?.email === thread.email ? 'bg-accent/10 border-l-2 border-l-accent' : ''
+                    }`}
+                  >
+                    <div className="flex items-start justify-between gap-2 mb-1">
+                      <span className="font-semibold text-sm text-foreground truncate">{thread.name}</span>
+                      {thread.unread > 0 && (
+                        <span className="flex-shrink-0 bg-accent text-accent-foreground text-xs rounded-full w-5 h-5 flex items-center justify-center font-bold">
+                          {thread.unread}
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground truncate">{thread.email}</p>
+                    <p className="text-xs text-muted-foreground mt-1 truncate">
+                      {thread.messages[thread.messages.length - 1]?.message}
+                    </p>
+                    <p className="text-xs text-muted-foreground/60 mt-1">
+                      {new Date(thread.latest).toLocaleDateString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })}
+                    </p>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
 
-          <Card>
-            <CardHeader>
-              <CardTitle>Message Threads ({threads.length})</CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="flex justify-center py-12">
-                  <Loader2 className="h-8 w-8 animate-spin text-muted-foreground" />
+          {/* ── Chat pane ── */}
+          {active ? (
+            <div className="flex-1 flex flex-col overflow-hidden">
+              {/* Chat header */}
+              <div className="flex items-center gap-3 px-6 py-3 border-b border-border bg-secondary/40">
+                <div className="w-8 h-8 rounded-full bg-accent/20 flex items-center justify-center flex-shrink-0">
+                  <User className="w-4 h-4 text-accent" />
                 </div>
-              ) : threads.length === 0 ? (
-                <p className="text-center py-12 text-muted-foreground">No messages yet</p>
-              ) : (
-                <div className="space-y-4">
-                  {threads.map(thread => (
-                    <div
-                      key={thread.id}
-                      className="p-4 border border-input rounded-lg hover:bg-accent/5 cursor-pointer transition-colors"
-                      onClick={() => loadThreadMessages(thread)}
-                    >
-                      <div className="flex items-start justify-between mb-2">
-                        <div className="flex-1">
-                          <h3 className="font-semibold text-foreground">{thread.subject}</h3>
-                          <p className="text-sm text-muted-foreground mt-1">From: User {thread.user_id.slice(0, 8)}</p>
+                <div>
+                  <p className="font-semibold text-foreground text-sm">{active.name}</p>
+                  <p className="text-xs text-muted-foreground">{active.email}</p>
+                </div>
+                <div className="ml-auto flex items-center gap-2 text-xs text-muted-foreground">
+                  <Clock className="w-3 h-3" />
+                  {active.messages.length} message{active.messages.length !== 1 ? 's' : ''}
+                </div>
+              </div>
+
+              {/* Messages */}
+              <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+                {active.messages.map(msg => {
+                  const isAdmin = msg.sender_role === 'admin'
+                  return (
+                    <div key={msg.id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                      <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${
+                        isAdmin
+                          ? 'bg-accent text-accent-foreground rounded-br-sm'
+                          : 'bg-secondary text-foreground rounded-bl-sm border border-border'
+                      }`}>
+                        <p className="text-sm leading-relaxed whitespace-pre-wrap">{msg.message}</p>
+                        <div className={`flex items-center justify-end gap-1 mt-1 ${isAdmin ? 'text-accent-foreground/70' : 'text-muted-foreground'}`}>
+                          <span className="text-xs">
+                            {new Date(msg.created_at).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          {isAdmin && <CheckCheck className="w-3 h-3" />}
                         </div>
-                        <Badge variant={thread.status === 'closed' ? 'secondary' : 'default'}>
-                          {thread.status}
-                        </Badge>
                       </div>
-                      <p className="text-xs text-muted-foreground">{new Date(thread.created_at).toLocaleString()}</p>
                     </div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
-          </Card>
+                  )
+                })}
+                <div ref={bottomRef} />
+              </div>
 
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
-              <DialogHeader>
-                <DialogTitle>{selectedThread?.subject}</DialogTitle>
-                <DialogDescription>Thread Status: {selectedThread?.status}</DialogDescription>
-              </DialogHeader>
-
-              {selectedThread?.messages && (
-                <div className="space-y-4 py-4 max-h-96 overflow-y-auto">
-                  {selectedThread.messages.map(msg => (
-                    <div
-                      key={msg.id}
-                      className={`p-3 rounded-lg ${
-                        msg.sender_id === selectedThread.user_id
-                          ? 'bg-accent/10 border-l-4 border-accent'
-                          : 'bg-muted'
-                      }`}
-                    >
-                      <p className="text-xs font-semibold text-muted-foreground mb-1">
-                        {msg.sender_id === selectedThread.user_id ? 'Customer' : 'You'}
-                      </p>
-                      <p className="text-sm text-foreground">{msg.content}</p>
-                      <p className="text-xs text-muted-foreground mt-2">{new Date(msg.created_at).toLocaleString()}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {selectedThread?.status !== 'closed' && (
-                <div className="space-y-3 py-4">
+              {/* Reply box */}
+              <div className="border-t border-border px-6 py-4 bg-background">
+                <div className="flex gap-3 items-end">
                   <Textarea
-                    placeholder="Type your reply here..."
-                    value={replyText}
-                    onChange={e => setReplyText(e.target.value)}
-                    className="min-h-24"
+                    placeholder="Type a reply… (Ctrl+Enter to send)"
+                    value={reply}
+                    onChange={e => setReply(e.target.value)}
+                    onKeyDown={handleKeyDown}
+                    rows={2}
+                    className="flex-1 resize-none"
                   />
+                  <Button
+                    onClick={sendReply}
+                    disabled={sending || !reply.trim()}
+                    className="h-10 px-4"
+                  >
+                    {sending
+                      ? <Loader2 className="w-4 h-4 animate-spin" />
+                      : <Send className="w-4 h-4" />
+                    }
+                  </Button>
                 </div>
-              )}
-
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setDialogOpen(false)}>Close</Button>
-                {selectedThread?.status !== 'closed' && (
-                  <>
-                    <Button
-                      onClick={() => selectedThread && markAsResolved(selectedThread)}
-                      variant="outline"
-                    >
-                      <Check className="mr-2 h-4 w-4" /> Mark Resolved
-                    </Button>
-                    <Button onClick={sendReply} disabled={sending || !replyText.trim()}>
-                      {sending ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Sending...</> : <><Send className="mr-2 h-4 w-4" /> Send Reply</>}
-                    </Button>
-                  </>
-                )}
-              </DialogFooter>
-            </DialogContent>
-          </Dialog>
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-center px-8">
+              <MessageSquare className="w-12 h-12 text-muted-foreground/30" />
+              <p className="text-muted-foreground">Select a conversation to start replying</p>
+            </div>
+          )}
         </div>
-      </main>
+      </div>
     </div>
   )
 }

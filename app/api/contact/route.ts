@@ -1,77 +1,80 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@/lib/supabase/server'
+import { logger, validateRequired } from '@/lib/utils/logger'
 
 export async function POST(request: NextRequest) {
   try {
     const { name, email, phone, subject, message } = await request.json()
-    console.log('[v0] Contact form received:', { name, email, subject })
 
-    if (!name || !email || !subject || !message) {
+    // Validate required fields
+    if (!validateRequired({ name, email, message }, ['name', 'email', 'message'])) {
+      logger.warn('Contact form missing required fields')
       return NextResponse.json(
-        { error: 'Missing required fields' },
+        { error: 'Name, email, and message are required' },
         { status: 400 }
       )
     }
 
-    const supabase = await createClient()
-    
-    // Try to create message thread
-    try {
-      const { data: threadData, error: threadError } = await supabase
-        .from('message_threads')
-        .insert({
-          subject: subject,
-          sender_email: email,
-          sender_name: name,
-          status: 'open',
-          created_at: new Date().toISOString(),
-        })
-        .select()
-        .single()
-
-      if (threadError) {
-        console.error('[v0] Thread creation error:', threadError.message)
-        // Continue even if thread creation fails - save message separately
-      }
-
-      // Save message
-      const threadId = threadData?.id || null
-      const { error: messageError } = await supabase
-        .from('messages')
-        .insert({
-          thread_id: threadId,
-          sender_email: email,
-          sender_name: name,
-          message_text: `Phone: ${phone || 'Not provided'}\n\n${message}`,
-          is_from_admin: false,
-          created_at: new Date().toISOString(),
-        })
-
-      if (messageError) {
-        console.error('[v0] Message creation error:', messageError.message)
-        return NextResponse.json(
-          { error: 'Failed to save message: ' + messageError.message },
-          { status: 500 }
-        )
-      }
-
-      console.log('[v0] Contact message saved successfully:', { email, thread_id: threadId })
-
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(email)) {
+      logger.warn('Invalid email format provided', { email })
       return NextResponse.json(
-        { message: 'Message received successfully', thread_id: threadId },
-        { status: 200 }
+        { error: 'Please provide a valid email address' },
+        { status: 400 }
       )
-    } catch (dbError: any) {
-      console.error('[v0] Database error:', dbError)
+    }
+
+    logger.info('Processing contact form', { name, email })
+    const supabase = await createClient()
+
+    // Find the first message in this email's thread to use as thread_id
+    const { data: existingRoot } = await supabase
+      .from('messages')
+      .select('id, thread_id')
+      .eq('sender_email', email.trim().toLowerCase())
+      .eq('sender_role', 'customer')
+      .order('created_at', { ascending: true })
+      .limit(1)
+
+    const threadId = existingRoot?.[0]?.thread_id ?? existingRoot?.[0]?.id ?? null
+
+    const { data, error: insertError } = await supabase
+      .from('messages')
+      .insert({
+        thread_id:     threadId,
+        name:          name.trim(),
+        sender_email:  email.trim().toLowerCase(),
+        message:       message.trim(),
+        sender_role:   'customer',
+        read_by_admin: false,
+      })
+      .select('id')
+      .single()
+
+    if (insertError || !data) {
+      logger.error('Database insert error', { code: insertError?.code, message: insertError?.message })
       return NextResponse.json(
-        { error: 'Database error: ' + (dbError.message || 'Unknown error') },
+        { error: `Failed to save message: ${insertError?.message}` },
         { status: 500 }
       )
     }
-  } catch (error: any) {
-    console.error('[v0] Contact form error:', error)
+
+    // If this is the very first message, set its own id as thread_id
+    if (!threadId) {
+      await supabase.from('messages').update({ thread_id: data.id }).eq('id', data.id)
+    }
+
+    logger.success('Contact message saved', { email, messageId: data.id })
+
     return NextResponse.json(
-      { error: 'Failed to process contact form: ' + (error.message || 'Unknown error') },
+      { success: true, message: 'Message sent successfully.', messageId: data.id },
+      { status: 200 }
+    )
+  } catch (error: any) {
+    logger.error('Contact form exception', error)
+    return NextResponse.json(
+      { error: `Failed to process contact form: ${error?.message || 'Unknown error'}` },
       { status: 500 }
     )
   }

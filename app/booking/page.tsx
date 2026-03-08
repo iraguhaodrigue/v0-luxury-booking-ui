@@ -9,395 +9,746 @@ import { BookingSteps } from '@/components/booking/booking-steps'
 import { ServicesSelector } from '@/components/booking/services-selector'
 import { BookingSummary } from '@/components/booking/booking-summary'
 import { formatPrice } from '@/lib/utils/currency'
-import { SAMPLE_PROPERTIES, SERVICES } from '@/lib/constants/rwanda-data'
 import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Loader2, CheckCircle, CreditCard, Smartphone, Calendar, Users, User, Mail, Phone } from 'lucide-react'
 
 const bookingSteps = [
-  { id: 1, title: 'Dates', description: 'Check-in & Check-out' },
-  { id: 2, title: 'Guest', description: 'Number of guests' },
-  { id: 3, title: 'Services', description: 'Add extras' },
-  { id: 4, title: 'Review', description: 'Confirm booking' },
-  { id: 5, title: 'Payment', description: 'Complete purchase' },
+  { id: 1, title: 'Dates',    description: 'Check-in & Check-out' },
+  { id: 2, title: 'Guests',   description: 'Number of guests' },
+  { id: 3, title: 'Details',  description: 'Your information' },
+  { id: 4, title: 'Extras',   description: 'Add-on services' },
+  { id: 5, title: 'Review',   description: 'Confirm booking' },
+  { id: 6, title: 'Payment',  description: 'Complete purchase' },
 ]
 
-interface Property {
+interface BookableItem {
+  // Shared
   id: number
   name: string
-  base_price_per_night: number
-  description: string | null
-  images: string[]
+  description?: string | null
+  
+  // Properties
+  location?: string
+  city?: string
+  country?: string
+  total_rooms?: number
+  base_price_per_night?: number
+  images?: string[] | string
+  amenities?: string[]
+  
+  // Cars
+  make?: string
+  model?: string
+  year?: number
+  capacity?: number
+  transmission?: string
+  fuel_type?: string
+  price_per_day?: number
+  image_url?: string
+  license_plate?: string
+  color?: string
+  status?: string
+  mileage_limit?: number
+  
+  // Services
+  price_per_day?: number
+  service_type?: string
+  category?: string
+  max_guests_per_day?: number
 }
 
 function BookingPageContent() {
   const searchParams = useSearchParams()
-  const propertyId = parseInt(searchParams.get('property') || '1')
-  const initialCheckIn = searchParams.get('checkIn') || ''
-  const initialCheckOut = searchParams.get('checkOut') || ''
-  const initialGuests = searchParams.get('guests') || '2'
+  const type = (searchParams.get('type') || 'property') as 'property' | 'car' | 'service'
+  const id   = searchParams.get('id')
 
+  // Navigation
   const [currentStep, setCurrentStep] = useState(1)
-  const [checkIn, setCheckIn] = useState(initialCheckIn)
-  const [checkOut, setCheckOut] = useState(initialCheckOut)
-  const [guests, setGuests] = useState(initialGuests)
-  const [selectedServices, setSelectedServices] = useState<number[]>([])
-  const [property, setProperty] = useState<Property | null>(null)
-  const [loading, setLoading] = useState(true)
+
+  // Item data
+  const [item,    setItem]    = useState<BookableItem | null>(null)
+  const [loading, setLoading] = useState(!!id)
+  const [error,   setError]   = useState<string | null>(null)
+
+  // Step 1 – Dates
+  const [checkIn,  setCheckIn]  = useState('')
+  const [checkOut, setCheckOut] = useState('')
+
+  // Step 2 – Guests
+  const [guests, setGuests] = useState('2')
+
+  // Step 3 – Customer details
+  const [userName,  setUserName]  = useState('')
+  const [userEmail, setUserEmail] = useState('')
+  const [userPhone, setUserPhone] = useState('')
+
+  // Step 4 – Extra services (full objects from DB so prices are always accurate)
+  const [selectedServices, setSelectedServices] = useState<Array<{ id: number; name: string; price: number }>>([])
+
+  // Step 6 – Payment
+  const [paymentMethod,   setPaymentMethod]   = useState<'card' | 'mobile'>('card')
+  const [cardNumber,      setCardNumber]       = useState('')
+  const [cardExpiry,      setCardExpiry]       = useState('')
+  const [cardCVV,         setCardCVV]          = useState('')
+  const [mobileProvider,  setMobileProvider]   = useState('mtn')
+  const [mobilePhone,     setMobilePhone]      = useState('')
+  const [processing,      setProcessing]       = useState(false)
+  const [bookingSuccess,  setBookingSuccess]   = useState(false)
+  const [bookingId,       setBookingId]        = useState('')
 
   useEffect(() => {
-    fetchProperty()
-  }, [propertyId])
+    if (id) fetchItem()
+  }, [id, type])
 
-  const fetchProperty = async () => {
+  const fetchItem = async () => {
+    setLoading(true)
+    setError(null)
     try {
-      const supabase = createClient()
-      const { data, error } = await supabase
-        .from('properties')
-        .select('*')
-        .eq('id', propertyId)
-        .single()
-
-      if (error || !data) {
-        // Fallback to sample data
-        const sample = SAMPLE_PROPERTIES.find((p) => p.id === propertyId) || SAMPLE_PROPERTIES[0]
-        setProperty(sample as any)
-      } else {
-        setProperty(data)
+      // All three tables use integer (int4) primary keys — convert the URL string to a number
+      const numericId = Number(id)
+      if (!id || isNaN(numericId) || numericId <= 0) {
+        setError('Invalid item ID.')
+        return
       }
-    } catch (error) {
-      console.error('Error fetching property:', error)
-      const sample = SAMPLE_PROPERTIES.find((p) => p.id === propertyId) || SAMPLE_PROPERTIES[0]
-      setProperty(sample as any)
+
+      const supabase = createClient()
+      let query
+
+      if (type === 'car') {
+        // Cars table: id, make, model, year, license_plate, color, capacity, transmission, fuel_type, price_per_day, images, status, mileage_limit
+        query = supabase
+          .from('cars')
+          .select('id,make,model,year,capacity,transmission,fuel_type,price_per_day,image_url,images,status,color,license_plate,mileage_limit,description')
+          .eq('id', numericId)
+      } else if (type === 'service') {
+        // Services table: id, name, description, price_per_day, image_url, service_type, category, max_guests_per_day, is_active
+        query = supabase
+          .from('services')
+          .select('id,name,description,price_per_day,image_url,service_type,category,max_guests_per_day,is_active')
+          .eq('id', numericId)
+      } else {
+        // Properties table: id, owner_id, name, description, location, city, country, property_type, total_rooms, amenities, base_price_per_night, currency, images, is_active
+        query = supabase
+          .from('properties')
+          .select('id,name,description,location,city,country,property_type,total_rooms,amenities,base_price_per_night,currency,images,is_active')
+          .eq('id', numericId)
+      }
+
+      const { data, error: fetchError } = await query.single()
+
+      if (fetchError || !data) {
+        setError(`Could not load ${type} details. (${fetchError?.message ?? 'not found'})`)
+      } else {
+        // Normalize car name from make/model/year
+        if (type === 'car') {
+          const car = data as any
+          setItem({ 
+            ...car, 
+            name: `${car.year ?? ''} ${car.make ?? ''} ${car.model ?? ''}`.trim() 
+          } as BookableItem)
+        } else {
+          setItem(data as BookableItem)
+        }
+      }
+    } catch (err) {
+      setError('Failed to load item details.')
     } finally {
       setLoading(false)
     }
   }
 
-  const calculateNights = () => {
+  // ─── Price helpers ───────────────────────────────────────────────────────────
+
+  const nights = (() => {
     if (!checkIn || !checkOut) return 0
-    const start = new Date(checkIn)
-    const end = new Date(checkOut)
-    return Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24))
+    const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime()
+    return Math.max(0, Math.ceil(ms / 86_400_000))
+  })()
+
+  const baseRate = (() => {
+    if (!item) return 0
+    if (type === 'property') return item.base_price_per_night ?? 0
+    if (type === 'car')      return item.price_per_day ?? 0
+    // service: price_per_day is the correct column name
+    return item.price_per_day ?? item.price ?? 0
+  })()
+
+  const itemTotal     = baseRate * (nights || 1)
+  const extrasTotal   = selectedServices.reduce((sum, svc) => sum + (svc.price ?? 0) * (nights || 1), 0)
+  const serviceFee    = Math.round((itemTotal + extrasTotal) * 0.1)
+  const grandTotal    = itemTotal + extrasTotal + serviceFee
+
+  // ─── Step validation ─────────────────────────────────────────────────────────
+
+  const stepValid = (() => {
+    if (currentStep === 1) return !!checkIn && !!checkOut && nights > 0
+    if (currentStep === 2) return parseInt(guests) >= 1
+    if (currentStep === 3) return !!userName.trim() && !!userEmail.trim() && !!userPhone.trim()
+    return true
+  })()
+
+  // ─── Complete booking ────────────────────────────────────────────────────────
+
+  const handleCompleteBooking = async () => {
+    try {
+      setProcessing(true)
+      setError(null)
+
+      if (paymentMethod === 'card') {
+        if (!cardNumber.replace(/\s/g, '') || !cardExpiry || !cardCVV) {
+          setError('Please fill in all card details.')
+          setProcessing(false)
+          return
+        }
+      } else {
+        if (!mobilePhone.trim()) {
+          setError('Please enter your mobile money number.')
+          setProcessing(false)
+          return
+        }
+      }
+
+      // Simulate gateway delay
+      await new Promise(r => setTimeout(r, 1800))
+
+      const supabase = createClient()
+      const { data, error: dbError } = await supabase
+        .from('bookings')
+        .insert({
+          item_id:        String(item?.id),
+          item_type:      type,
+          item_name:      item?.name ?? '',
+          user_name:      userName,
+          user_email:     userEmail,
+          user_phone:     userPhone,
+          guests:         parseInt(guests),
+          checkin:        checkIn,
+          checkout:       checkOut,
+          total_price:    grandTotal,
+          payment_method: paymentMethod === 'card'
+            ? 'Card (Demo)'
+            : `${mobileProvider.toUpperCase()} Money (Demo)`,
+          extras: selectedServices.map(svc => ({
+            id: svc.id, name: svc.name, price: svc.price,
+          })),
+          status: 'pending',
+        })
+        .select('id')
+        .single()
+
+      if (dbError || !data) {
+        setError('Failed to save booking. Please try again.')
+        setProcessing(false)
+        return
+      }
+
+      setBookingId(data.id)
+      setBookingSuccess(true)
+    } catch {
+      setError('An unexpected error occurred. Please try again.')
+    } finally {
+      setProcessing(false)
+    }
   }
 
-  const nights = calculateNights()
-  const roomTotal = property && nights > 0 ? property.base_price_per_night * nights : 0
+  // ─── Image helper ─────────────────────────────────────────────────────────────
 
-  const servicesTotal = selectedServices.reduce((sum, serviceId) => {
-    const service = SERVICES.find((s) => s.id === serviceId)
-    return sum + (service?.price || 0)
-  }, 0)
+  const itemImage = (() => {
+    if (!item) return undefined
+    if (item.images && item.images.length > 0) return item.images[0]
+    if (item.image) return item.image
+    return undefined
+  })()
 
-  const handleNextStep = () => {
-    if (currentStep < 5) setCurrentStep(currentStep + 1)
+  // ─── Render ───────────────────────────────────────────────────────────────────
+
+  if (loading) {
+    return (
+      <main className="w-full">
+        <Navbar />
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+          <Loader2 className="h-12 w-12 animate-spin text-accent" />
+          <p className="text-muted-foreground">Loading details…</p>
+        </div>
+        <Footer />
+      </main>
+    )
   }
 
-  const handlePrevStep = () => {
-    if (currentStep > 1) setCurrentStep(currentStep - 1)
+  if (!loading && (error || !item)) {
+    return (
+      <main className="w-full">
+        <Navbar />
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4 text-center">
+          <h2 className="text-2xl font-serif font-bold text-foreground">{error ?? 'Item not found'}</h2>
+          <p className="text-muted-foreground">The {type} you are trying to book could not be loaded.</p>
+          <Link href={type === 'car' ? '/car-rental' : type === 'service' ? '/services' : '/properties'}>
+            <Button>Browse {type === 'car' ? 'Cars' : type === 'service' ? 'Services' : 'Properties'}</Button>
+          </Link>
+        </div>
+        <Footer />
+      </main>
+    )
+  }
+
+  if (bookingSuccess) {
+    return (
+      <main className="w-full">
+        <Navbar />
+        <div className="flex flex-col items-center justify-center min-h-[60vh] gap-6 px-4 text-center max-w-lg mx-auto py-24">
+          <div className="w-20 h-20 rounded-full bg-accent/10 flex items-center justify-center">
+            <CheckCircle className="w-10 h-10 text-accent" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-serif font-bold text-foreground mb-2">Booking Confirmed!</h2>
+            <p className="text-muted-foreground">
+              Thank you, {userName}. Your reservation has been received and is pending confirmation.
+            </p>
+          </div>
+          <div className="bg-secondary rounded-xl p-6 w-full text-left space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Booking ID</span>
+              <span className="font-mono font-semibold text-foreground text-xs">{bookingId}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">{item!.name}</span>
+              <span className="text-foreground font-semibold">{nights} night{nights !== 1 ? 's' : ''}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Check-in</span>
+              <span className="text-foreground font-semibold">{checkIn}</span>
+            </div>
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Check-out</span>
+              <span className="text-foreground font-semibold">{checkOut}</span>
+            </div>
+            <div className="flex justify-between border-t border-border pt-3">
+              <span className="font-semibold text-foreground">Total Paid</span>
+              <span className="font-bold text-accent">{formatPrice(grandTotal)}</span>
+            </div>
+          </div>
+          <div className="flex gap-3 w-full">
+            <Link href="/properties" className="flex-1">
+              <Button variant="outline" className="w-full">Browse More</Button>
+            </Link>
+            <Link href="/contact" className="flex-1">
+              <Button className="w-full">Contact Support</Button>
+            </Link>
+          </div>
+        </div>
+        <Footer />
+      </main>
+    )
   }
 
   return (
     <main className="w-full">
       <Navbar />
 
-      <div className="bg-secondary py-8 md:py-12">
+      {/* Hero */}
+      <div className="bg-secondary py-8 md:py-12 border-b border-border">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h1 className="text-4xl md:text-5xl font-serif font-bold text-foreground">
+          <p className="text-accent text-xs font-semibold tracking-widest uppercase mb-2">Reservation</p>
+          <h1 className="text-3xl md:text-4xl font-serif font-bold text-foreground">
             Complete Your Booking
           </h1>
-          <p className="text-lg text-muted-foreground mt-2">
-            Follow the steps below to reserve your luxury stay in Rwanda
+          <p className="text-muted-foreground mt-1">
+            {item?.name} &mdash; {nights > 0 ? `${nights} night${nights !== 1 ? 's' : ''}` : 'Select dates below'}
           </p>
         </div>
       </div>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
-        {/* Steps */}
-        <BookingSteps steps={bookingSteps} currentStep={currentStep} />
+      {/* Steps bar */}
+      <div className="border-b border-border bg-background sticky top-0 z-20">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+          <BookingSteps steps={bookingSteps} currentStep={currentStep} />
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-          {/* Main Content */}
-          <div className="lg:col-span-2">
-            {/* Step 1: Select Dates */}
+      {/* Body */}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+
+          {/* ── Left / form column ── */}
+          <div className="lg:col-span-2 space-y-6">
+
+            {/* STEP 1 – Dates */}
             {currentStep === 1 && (
               <div className="card-luxury space-y-6">
                 <div>
-                  <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
-                    When would you like to stay?
-                  </h2>
-                  <p className="text-muted-foreground">
-                    Choose your check-in and check-out dates for {property.name}
-                  </p>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Select Dates</h2>
+                  <p className="text-muted-foreground text-sm">Choose your check-in and check-out dates.</p>
                 </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
                   <div>
-                    <label className="block text-sm font-semibold text-foreground mb-3">
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <Calendar className="inline w-4 h-4 mr-1 text-accent" />
                       Check-in Date
                     </label>
-                    <input
+                    <Input
                       type="date"
                       value={checkIn}
-                      onChange={(e) => setCheckIn(e.target.value)}
-                      className="input-luxury w-full"
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={e => { setCheckIn(e.target.value); if (checkOut && e.target.value >= checkOut) setCheckOut('') }}
+                      className="w-full"
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-semibold text-foreground mb-3">
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <Calendar className="inline w-4 h-4 mr-1 text-accent" />
                       Check-out Date
                     </label>
-                    <input
+                    <Input
                       type="date"
                       value={checkOut}
-                      onChange={(e) => setCheckOut(e.target.value)}
-                      className="input-luxury w-full"
+                      min={checkIn || new Date().toISOString().split('T')[0]}
+                      onChange={e => setCheckOut(e.target.value)}
+                      className="w-full"
                     />
                   </div>
                 </div>
-
                 {nights > 0 && (
-                  <div className="bg-secondary p-4 rounded-lg">
-                    <p className="text-sm text-muted-foreground">
-                      Duration: <span className="font-semibold text-foreground">{nights} nights</span>
-                    </p>
-                    <p className="text-sm text-muted-foreground mt-1">
-                      Total: <span className="font-semibold text-accent">{formatPrice(roomTotal, false)}</span>
-                    </p>
+                  <div className="bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 text-sm text-foreground">
+                    <span className="font-semibold text-accent">{nights}</span> night{nights !== 1 ? 's' : ''} &nbsp;&middot;&nbsp;
+                    <span className="font-semibold">{formatPrice(baseRate)}</span>/night &nbsp;&middot;&nbsp;
+                    Subtotal: <span className="font-semibold">{formatPrice(itemTotal)}</span>
                   </div>
                 )}
               </div>
             )}
 
-            {/* Step 2: Select Guests */}
+            {/* STEP 2 – Guests */}
             {currentStep === 2 && (
               <div className="card-luxury space-y-6">
                 <div>
-                  <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
-                    How many guests?
-                  </h2>
-                  <p className="text-muted-foreground">
-                    This property accommodates up to {property.capacity} guests
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Number of Guests</h2>
+                  <p className="text-muted-foreground text-sm">
+                    {type === 'property'
+                      ? `This property accommodates up to ${item?.capacity ?? '??'} guests.`
+                      : type === 'car'
+                      ? `This vehicle seats up to ${item?.seats ?? item?.capacity ?? '??'} passengers.`
+                      : 'How many guests will be attending?'}
                   </p>
                 </div>
-
                 <div>
-                  <label className="block text-sm font-semibold text-foreground mb-3">
-                    Number of Guests
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    <Users className="inline w-4 h-4 mr-1 text-accent" />
+                    Guests
                   </label>
-                  <select
+                  <Input
+                    type="number"
+                    min={1}
+                    max={type === 'property' ? (item?.capacity ?? 20) : (item?.seats ?? item?.capacity ?? 10)}
                     value={guests}
-                    onChange={(e) => setGuests(e.target.value)}
-                    className="input-luxury w-full text-lg"
-                  >
-                    {[...Array(Math.min(property.capacity, 10))].map((_, i) => (
-                      <option key={i + 1} value={String(i + 1)}>
-                        {i + 1} Guest{i !== 0 ? 's' : ''}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="bg-accent/10 p-4 rounded-lg border border-accent/20">
-                  <h3 className="font-semibold text-foreground mb-2">Property Details</h3>
-                  <p className="text-sm text-muted-foreground">{property.description}</p>
+                    onChange={e => setGuests(e.target.value)}
+                    className="w-32"
+                  />
                 </div>
               </div>
             )}
 
-            {/* Step 3: Services */}
+            {/* STEP 3 – Customer details */}
             {currentStep === 3 && (
-              <div className="card-luxury">
+              <div className="card-luxury space-y-6">
+                <div>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Your Details</h2>
+                  <p className="text-muted-foreground text-sm">We'll use this information for your booking confirmation.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <User className="inline w-4 h-4 mr-1 text-accent" />
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Jane Doe"
+                      value={userName}
+                      onChange={e => setUserName(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <Mail className="inline w-4 h-4 mr-1 text-accent" />
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="email"
+                      placeholder="jane@example.com"
+                      value={userEmail}
+                      onChange={e => setUserEmail(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <Phone className="inline w-4 h-4 mr-1 text-accent" />
+                      Phone Number <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="tel"
+                      placeholder="+250 788 000 000"
+                      value={userPhone}
+                      onChange={e => setUserPhone(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 4 – Extras */}
+            {currentStep === 4 && (
+              <div className="card-luxury space-y-6">
+                <div>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Add-on Services</h2>
+                  <p className="text-muted-foreground text-sm">Enhance your stay with optional services.</p>
+                </div>
                 <ServicesSelector
-                  onServicesChange={(serviceIds) => setSelectedServices(serviceIds)}
-                  initialServices={selectedServices}
+                  selectedServices={selectedServices}
+                  onServicesChange={setSelectedServices}
+                  nights={nights || 1}
                 />
               </div>
             )}
 
-            {/* Step 4: Review */}
-            {currentStep === 4 && (
-              <div className="card-luxury space-y-6">
-                <div>
-                  <h2 className="text-2xl font-serif font-bold text-foreground mb-6">
-                    Review Your Booking
-                  </h2>
-
-                  {/* Property */}
-                  <div className="bg-secondary p-4 rounded-lg mb-4">
-                    <h3 className="font-semibold text-foreground mb-2">
-                      Property
-                    </h3>
-                    <p className="text-muted-foreground text-sm">{property.name}</p>
-                    <p className="text-muted-foreground text-sm">{property.location}, Rwanda</p>
-                  </div>
-
-                  {/* Dates */}
-                  <div className="bg-secondary p-4 rounded-lg mb-4">
-                    <h3 className="font-semibold text-foreground mb-2">
-                      Dates
-                    </h3>
-                    <p className="text-muted-foreground text-sm">
-                      {checkIn && checkOut
-                        ? `${new Date(checkIn).toLocaleDateString()} - ${new Date(checkOut).toLocaleDateString()} (${nights} nights)`
-                        : 'Not selected'}
-                    </p>
-                  </div>
-
-                  {/* Guests */}
-                  <div className="bg-secondary p-4 rounded-lg mb-4">
-                    <h3 className="font-semibold text-foreground mb-2">
-                      Guests
-                    </h3>
-                    <p className="text-muted-foreground text-sm">
-                      {guests} guest{guests !== '1' ? 's' : ''}
-                    </p>
-                  </div>
-
-                  {/* Services */}
-                  {selectedServices.length > 0 && (
-                    <div className="bg-secondary p-4 rounded-lg">
-                      <h3 className="font-semibold text-foreground mb-3">
-                        Selected Services
-                      </h3>
-                      <div className="space-y-2">
-                        {selectedServices.map((serviceId) => {
-                          const service = SERVICES.find((s) => s.id === serviceId)
-                          return (
-                            <div key={serviceId} className="flex justify-between text-sm">
-                              <span className="text-muted-foreground">{service?.name}</span>
-                              <span className="text-foreground font-semibold">
-                                {formatPrice(service?.price || 0, false)}
-                              </span>
-                            </div>
-                          )
-                        })}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* Step 5: Payment */}
+            {/* STEP 5 – Review */}
             {currentStep === 5 && (
               <div className="card-luxury space-y-6">
                 <div>
-                  <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
-                    Payment Details
-                  </h2>
-                  <p className="text-muted-foreground mb-6">
-                    Enter your payment information to complete the booking
-                  </p>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Review Your Booking</h2>
+                  <p className="text-muted-foreground text-sm">Please confirm all details before proceeding to payment.</p>
+                </div>
 
-                  <div className="space-y-4">
-                    <div>
-                      <label className="block text-sm font-semibold text-foreground mb-2">
-                        Full Name
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="John Doe"
-                        className="input-luxury w-full"
-                      />
+                {/* Guest info */}
+                <div className="bg-secondary rounded-lg p-5 space-y-3">
+                  <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide">Guest Information</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    {[
+                      { label: 'Name',     value: userName },
+                      { label: 'Email',    value: userEmail },
+                      { label: 'Phone',    value: userPhone },
+                      { label: 'Guests',   value: `${guests} guest${parseInt(guests) !== 1 ? 's' : ''}` },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="flex justify-between">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-semibold text-foreground">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Stay info */}
+                <div className="bg-secondary rounded-lg p-5 space-y-3">
+                  <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide">Stay Details</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+                    {[
+                      { label: 'Property',  value: item!.name },
+                      { label: 'Check-in',  value: checkIn },
+                      { label: 'Check-out', value: checkOut },
+                      { label: 'Nights',    value: `${nights}` },
+                    ].map(({ label, value }) => (
+                      <div key={label} className="flex justify-between">
+                        <span className="text-muted-foreground">{label}</span>
+                        <span className="font-semibold text-foreground">{value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                {/* Price breakdown */}
+                <div className="bg-secondary rounded-lg p-5 space-y-3">
+                  <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide">Price Breakdown</h3>
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">{item!.name} ({nights} night{nights !== 1 ? 's' : ''})</span>
+                      <span className="font-semibold text-foreground">{formatPrice(itemTotal)}</span>
                     </div>
-
-                    <div>
-                      <label className="block text-sm font-semibold text-foreground mb-2">
-                        Email Address
-                      </label>
-                      <input
-                        type="email"
-                        placeholder="john@example.com"
-                        className="input-luxury w-full"
-                      />
+                    {extrasTotal > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">Add-on services</span>
+                        <span className="font-semibold text-foreground">{formatPrice(extrasTotal)}</span>
+                      </div>
+                    )}
+                    <div className="flex justify-between">
+                      <span className="text-muted-foreground">Service fee (10%)</span>
+                      <span className="font-semibold text-foreground">{formatPrice(serviceFee)}</span>
                     </div>
+                    <div className="flex justify-between border-t border-border pt-3 text-base">
+                      <span className="font-bold text-foreground">Grand Total</span>
+                      <span className="font-bold text-accent">{formatPrice(grandTotal)}</span>
+                    </div>
+                  </div>
+                </div>
 
+                <p className="text-xs text-muted-foreground">
+                  Free cancellation up to 48 hours before check-in.
+                </p>
+              </div>
+            )}
+
+            {/* STEP 6 – Payment */}
+            {currentStep === 6 && (
+              <div className="card-luxury space-y-6">
+                <div>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Payment</h2>
+                  <p className="text-muted-foreground text-sm">All transactions are secure and demo-simulated.</p>
+                </div>
+
+                {/* Method selector */}
+                <div className="grid grid-cols-2 gap-3">
+                  {([
+                    { id: 'card',   label: 'Card Payment',  Icon: CreditCard },
+                    { id: 'mobile', label: 'Mobile Money',  Icon: Smartphone },
+                  ] as const).map(({ id: mid, label, Icon }) => (
+                    <button
+                      key={mid}
+                      onClick={() => setPaymentMethod(mid)}
+                      className={`flex flex-col items-center gap-2 rounded-xl border-2 p-4 transition-all ${
+                        paymentMethod === mid
+                          ? 'border-accent bg-accent/10 text-accent'
+                          : 'border-border bg-secondary text-muted-foreground hover:border-accent/40'
+                      }`}
+                    >
+                      <Icon className="w-6 h-6" />
+                      <span className="text-sm font-semibold">{label}</span>
+                    </button>
+                  ))}
+                </div>
+
+                {/* Card form */}
+                {paymentMethod === 'card' && (
+                  <div className="space-y-4 rounded-xl bg-secondary p-5">
+                    <p className="text-xs text-muted-foreground">
+                      Demo mode — use any numbers. e.g. <code className="bg-background px-1 rounded">4111 1111 1111 1111</code>
+                    </p>
                     <div>
-                      <label className="block text-sm font-semibold text-foreground mb-2">
-                        Card Number
-                      </label>
-                      <input
-                        type="text"
-                        placeholder="1234 5678 9012 3456"
-                        className="input-luxury w-full"
+                      <label className="block text-sm font-medium text-foreground mb-2">Card Number</label>
+                      <Input
+                        placeholder="4111 1111 1111 1111"
+                        value={cardNumber}
+                        onChange={e => setCardNumber(e.target.value)}
                         maxLength={19}
                       />
                     </div>
-
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">
-                          Expiry Date
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="MM/YY"
-                          className="input-luxury w-full"
+                        <label className="block text-sm font-medium text-foreground mb-2">Expiry MM/YY</label>
+                        <Input
+                          placeholder="12/27"
+                          value={cardExpiry}
+                          onChange={e => setCardExpiry(e.target.value)}
                           maxLength={5}
                         />
                       </div>
                       <div>
-                        <label className="block text-sm font-semibold text-foreground mb-2">
-                          CVV
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="123"
-                          className="input-luxury w-full"
+                        <label className="block text-sm font-medium text-foreground mb-2">CVV</label>
+                        <Input
+                          type="password"
+                          placeholder="•••"
+                          value={cardCVV}
+                          onChange={e => setCardCVV(e.target.value)}
                           maxLength={4}
                         />
                       </div>
                     </div>
                   </div>
+                )}
+
+                {/* Mobile money form */}
+                {paymentMethod === 'mobile' && (
+                  <div className="space-y-4 rounded-xl bg-secondary p-5">
+                    <p className="text-xs text-muted-foreground">Demo mode — enter any phone number.</p>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Provider</label>
+                      <select
+                        value={mobileProvider}
+                        onChange={e => setMobileProvider(e.target.value)}
+                        className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground text-sm"
+                      >
+                        <option value="mtn">MTN MoMo</option>
+                        <option value="airtel">Airtel Money</option>
+                      </select>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-foreground mb-2">Mobile Number</label>
+                      <Input
+                        type="tel"
+                        placeholder="+250 788 000 000"
+                        value={mobilePhone}
+                        onChange={e => setMobilePhone(e.target.value)}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Amount reminder */}
+                <div className="flex justify-between items-center border border-accent/30 bg-accent/5 rounded-xl px-5 py-3">
+                  <span className="text-sm font-medium text-foreground">Amount Due</span>
+                  <span className="text-xl font-bold text-accent">{formatPrice(grandTotal)}</span>
                 </div>
+
+                {error && (
+                  <div className="bg-red-50 border border-red-200 text-red-700 rounded-lg px-4 py-3 text-sm">
+                    {error}
+                  </div>
+                )}
               </div>
             )}
 
-            {/* Navigation Buttons */}
-            <div className="flex gap-4 mt-8">
-              {currentStep > 1 && (
-                <button
-                  onClick={handlePrevStep}
-                  className="btn-luxury-ghost flex-1"
-                >
+            {/* ── Navigation buttons ── */}
+            <div className="flex justify-between items-center pt-2">
+              {currentStep > 1 ? (
+                <Button variant="outline" onClick={() => setCurrentStep(s => s - 1)}>
                   Back
-                </button>
+                </Button>
+              ) : (
+                <Link href={type === 'car' ? '/car-rental' : type === 'service' ? '/services' : '/properties'}>
+                  <Button variant="outline">Cancel</Button>
+                </Link>
               )}
-              {currentStep < 5 ? (
-                <button
-                  onClick={handleNextStep}
-                  disabled={
-                    (currentStep === 1 && (!checkIn || !checkOut)) ||
-                    (currentStep === 2 && !guests)
-                  }
-                  className="btn-luxury-accent flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+
+              {currentStep < bookingSteps.length ? (
+                <Button
+                  disabled={!stepValid}
+                  onClick={() => setCurrentStep(s => s + 1)}
+                  className="min-w-[120px]"
                 >
                   Continue
-                </button>
+                </Button>
               ) : (
-                <Link href={`/confirmation?property=${propertyId}&checkIn=${checkIn}&checkOut=${checkOut}`}>
-                  <button className="btn-luxury-accent w-full">
-                    Complete Booking
-                  </button>
-                </Link>
+                <Button
+                  onClick={handleCompleteBooking}
+                  disabled={processing}
+                  className="min-w-[160px]"
+                >
+                  {processing ? (
+                    <><Loader2 className="w-4 h-4 mr-2 animate-spin" />Processing…</>
+                  ) : (
+                    `Pay ${formatPrice(grandTotal)}`
+                  )}
+                </Button>
               )}
             </div>
           </div>
 
-          {/* Booking Summary Sidebar */}
-          <div className="lg:col-span-1">
+          {/* ── Right / summary column ── */}
+          <div className="hidden lg:block">
             <BookingSummary
-              property={{
-                name: property.name,
-                location: property.location,
-                pricePerNight: property.price_per_night,
-                image: property.images[0],
-              }}
+              property={item ? {
+                name:          item.name,
+                location:      item.location ?? 'Rwanda',
+                pricePerNight: baseRate,
+                image:         itemImage,
+              } : undefined}
               checkIn={checkIn}
               checkOut={checkOut}
               guests={guests}
               nights={nights}
-              propertyTotal={roomTotal}
-              servicesTotal={servicesTotal}
+              propertyTotal={itemTotal}
+              servicesTotal={extrasTotal}
             />
           </div>
         </div>
@@ -410,7 +761,15 @@ function BookingPageContent() {
 
 export default function BookingPage() {
   return (
-    <Suspense fallback={<div>Loading...</div>}>
+    <Suspense fallback={
+      <main className="w-full">
+        <Navbar />
+        <div className="flex items-center justify-center min-h-[60vh]">
+          <Loader2 className="h-12 w-12 animate-spin text-accent" />
+        </div>
+        <Footer />
+      </main>
+    }>
       <BookingPageContent />
     </Suspense>
   )

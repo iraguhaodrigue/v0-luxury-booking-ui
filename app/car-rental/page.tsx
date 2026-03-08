@@ -2,40 +2,35 @@ import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { CarCard } from '@/components/cars/car-card'
 import { createClient } from '@/lib/supabase/server'
-
-const SAMPLE_CARS = [
-  {
-    id: 1,
-    make: 'Tesla',
-    model: 'Model S',
-    year: 2024,
-    price_per_day: 250,
-    images: ['https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&q=80'],
-    capacity: 5,
-    transmission: 'Electric',
-    fuel_type: 'Electric',
-    status: 'available',
-    description: 'Luxury electric sedan with autopilot',
-  },
-]
+import { logger } from '@/lib/utils/logger'
+import { querySelectors } from '@/lib/utils/query-optimizations'
+import { Car, UserCheck, ShieldCheck } from 'lucide-react'
 
 async function fetchCars() {
   try {
+    logger.info('Fetching cars from database')
     const supabase = await createClient()
     const { data, error } = await supabase
       .from('cars')
-      .select('*')
+      .select(querySelectors.carsListing)
+      .eq('status', 'available')
       .order('created_at', { ascending: false })
 
     if (error) {
-      console.error('Error fetching cars:', error)
-      return SAMPLE_CARS
+      logger.error('Error fetching cars from database', error)
+      return []
     }
 
-    return data && data.length > 0 ? data : SAMPLE_CARS
+    if (!data || data.length === 0) {
+      logger.info('No cars found in database')
+      return []
+    }
+
+    logger.success(`Retrieved ${data.length} cars from database`)
+    return data
   } catch (error) {
-    console.error('Error in fetchCars:', error)
-    return SAMPLE_CARS
+    logger.error('Exception while fetching cars', error)
+    return []
   }
 }
 
@@ -87,11 +82,17 @@ export default async function CarRentalPage() {
           </div>
 
           {/* Cars Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {cars.map((car) => (
-              <CarCard key={car.id} {...car} />
-            ))}
-          </div>
+          {cars && cars.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {cars.map((car) => (
+                <CarCard key={car.id} {...car} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <p className="text-lg text-muted-foreground">No cars available at this time. Please check back soon.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -102,10 +103,10 @@ export default async function CarRentalPage() {
             Why Choose Our Car Rental?
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🚗</span>
+                <Car className="w-8 h-8 text-accent" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">
                 Premium Fleet
@@ -117,7 +118,7 @@ export default async function CarRentalPage() {
 
             <div className="text-center">
               <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">👔</span>
+                <UserCheck className="w-8 h-8 text-accent" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">
                 Professional Drivers
@@ -129,7 +130,7 @@ export default async function CarRentalPage() {
 
             <div className="text-center">
               <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🛡️</span>
+                <ShieldCheck className="w-8 h-8 text-accent" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">
                 Complete Coverage

@@ -1,4 +1,6 @@
-import Link from 'next/link'
+'use client'
+
+import { useRouter } from 'next/navigation'
 import { Star, MapPin, Users } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/currency'
 
@@ -18,6 +20,8 @@ interface PropertyCardProps {
 }
 
 export function PropertyCard({ property }: PropertyCardProps) {
+  const router = useRouter()
+
   if (!property) return null
   
   const { id, name, location, images, capacity = 2, amenities = [] } = property
@@ -25,11 +29,17 @@ export function PropertyCard({ property }: PropertyCardProps) {
   const rating = property.rating || 4.5
   const reviews = property.reviews || 0
   const imageUrl = Array.isArray(images) ? images[0] : images
+
+  const handleBooking = (e: React.MouseEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    router.push(`/booking?type=property&id=${id}`)
+  }
   
   return (
     <div className="card-luxury group overflow-hidden h-full flex flex-col">
       {/* Image */}
-      <Link href={`/properties/${id}`} className="relative h-48 sm:h-56 md:h-64 mb-3 sm:mb-4 overflow-hidden rounded-lg block">
+      <div className="relative h-48 sm:h-56 md:h-64 mb-3 sm:mb-4 overflow-hidden rounded-lg block">
         <img
           src={imageUrl}
           alt={name}
@@ -43,7 +53,7 @@ export function PropertyCard({ property }: PropertyCardProps) {
             Premium
           </span>
         </div>
-      </Link>
+      </div>
 
       {/* Content */}
       <div className="space-y-2 sm:space-y-3 flex-grow flex flex-col">
@@ -70,11 +80,9 @@ export function PropertyCard({ property }: PropertyCardProps) {
         </div>
 
         {/* Name */}
-        <Link href={`/properties/${id}`} className="hover:text-accent transition-colors">
-          <h3 className="text-base sm:text-lg md:text-xl font-serif font-bold text-foreground line-clamp-2">
-            {name}
-          </h3>
-        </Link>
+        <h3 className="text-base sm:text-lg md:text-xl font-serif font-bold text-foreground line-clamp-2">
+          {name}
+        </h3>
 
         {/* Location */}
         <div className="flex items-center space-x-1 text-muted-foreground">
@@ -102,11 +110,17 @@ export function PropertyCard({ property }: PropertyCardProps) {
           </div>
         )}
 
-        {/* Button */}
-        <Link href={`/properties/${id}`} className="w-full btn-luxury-ghost text-xs sm:text-sm mt-auto block">
-          View Details
-        </Link>
+        {/* Buttons */}
+        <div className="flex gap-2 mt-auto pt-3">
+          <button onClick={() => router.push(`/properties/${id}`)} className="flex-1 btn-luxury-ghost text-xs sm:text-sm">
+            View Details
+          </button>
+          <button onClick={handleBooking} className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90 px-3 py-2 rounded-lg font-semibold transition-all duration-300 text-xs sm:text-sm">
+            Book Now
+          </button>
+        </div>
       </div>
     </div>
   )
 }
+
