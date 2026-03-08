@@ -9,6 +9,7 @@ interface CarCardProps {
   model?: string
   price_per_day?: number
   price?: number
+  image_url?: string
   images?: string[] | string
   image?: string
   capacity?: number
@@ -32,6 +33,7 @@ export function CarCard(car: CarCardProps) {
     model = 'Vehicle',
     price_per_day,
     price,
+    image_url,
     images,
     image,
     capacity = 5,
@@ -44,12 +46,15 @@ export function CarCard(car: CarCardProps) {
     description,
   } = car
 
-  // Handle image fallback
-  let imageUrl = 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&q=80'
-  if (image) {
-    imageUrl = image
+  // Priority: image_url (DB primary) → images array → image field → fallback
+  const FALLBACK = 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&q=80'
+  let imageUrl = FALLBACK
+  if (image_url) {
+    imageUrl = image_url
   } else if (images) {
-    imageUrl = Array.isArray(images) ? (images[0] || imageUrl) : images
+    imageUrl = Array.isArray(images) ? (images[0] || FALLBACK) : images
+  } else if (image) {
+    imageUrl = image
   }
 
   const finalPrice = price_per_day || price || 0

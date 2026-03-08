@@ -8,20 +8,20 @@ export const querySelectors = {
   // Properties - full for detail pages
   propertiesFull: 'id,name,base_price_per_night,description,images,location,city,country,property_type,total_rooms,amenities,is_active,created_at',
   
-  // Cars - minimal set for listings
-  carsListing: 'id,make,model,year,price_per_day,capacity,transmission,fuel_type,images,status',
+  // Cars - minimal set for listings (include image_url as primary image source)
+  carsListing: 'id,make,model,year,price_per_day,capacity,transmission,fuel_type,image_url,images,status',
   
   // Cars - full for detail pages
-  carsFull: 'id,make,model,year,price_per_day,capacity,transmission,fuel_type,images,description,status,created_at,color,mileage_limit',
+  carsFull: 'id,make,model,year,price_per_day,capacity,transmission,fuel_type,image_url,images,description,status,created_at,color,mileage_limit,license_plate',
   
   // Services - minimal set for listings
-  servicesListing: 'id,name,service_type,price_per_day,description,is_active',
+  servicesListing: 'id,name,service_type,category,price_per_day,description,image_url,is_active',
   
   // Services - full for detail pages
-  servicesFull: 'id,name,service_type,price_per_day,description,max_guests_per_day,is_active,created_at',
+  servicesFull: 'id,name,service_type,category,price_per_day,description,image_url,max_guests_per_day,is_active,created_at',
   
   // Messages - for admin view
-  messagesAdmin: 'id,name,email,message,read_by_admin,created_at',
+  messagesAdmin: 'id,name,sender_email,message,read_by_admin,created_at',
 }
 
 // Cached query results with TTL

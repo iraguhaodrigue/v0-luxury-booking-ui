@@ -13,6 +13,7 @@ interface ServiceCardProps {
   price: number
   duration: string
   image?: string
+  image_url?: string          // primary image column from DB
 }
 
 export function ServiceCard({
@@ -24,6 +25,7 @@ export function ServiceCard({
   price,
   duration,
   image,
+  image_url,
 }: ServiceCardProps) {
   const router = useRouter()
 
@@ -33,13 +35,16 @@ export function ServiceCard({
     }
   }
 
+  // Use image_url (DB column) first, then image prop fallback
+  const displayImage = image_url || image
+
   return (
     <div className="card-luxury h-full flex flex-col group overflow-hidden">
       {/* Image or Icon Background */}
-      {image ? (
+      {displayImage ? (
         <div className="relative h-48 mb-4 overflow-hidden rounded-lg">
           <img
-            src={image}
+            src={displayImage}
             alt={title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />

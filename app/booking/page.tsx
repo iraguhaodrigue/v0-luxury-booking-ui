@@ -28,7 +28,9 @@ interface BookableItem {
   id: number
   name: string
   description?: string | null
-  
+  price_per_day?: number      // cars & services
+  image_url?: string          // cars & services primary image
+
   // Properties
   location?: string
   city?: string
@@ -37,23 +39,20 @@ interface BookableItem {
   base_price_per_night?: number
   images?: string[] | string
   amenities?: string[]
-  
+
   // Cars
   make?: string
   model?: string
   year?: number
-  capacity?: number
+  capacity?: number           // seats / max guests for cars & services
   transmission?: string
   fuel_type?: string
-  price_per_day?: number
-  image_url?: string
   license_plate?: string
   color?: string
   status?: string
   mileage_limit?: number
-  
+
   // Services
-  price_per_day?: number
   service_type?: string
   category?: string
   max_guests_per_day?: number
@@ -254,11 +253,15 @@ function BookingPageContent() {
   }
 
   // ─── Image helper ─────────────────────────────────────────────────────────────
-
+  // Priority: image_url (cars/services) → images[0] (properties/cars gallery)
   const itemImage = (() => {
     if (!item) return undefined
-    if (item.images && item.images.length > 0) return item.images[0]
-    if (item.image) return item.image
+    if (item.image_url) return item.image_url
+    if (item.images) {
+      const imgs = item.images
+      if (Array.isArray(imgs) && imgs.length > 0) return imgs[0]
+      if (typeof imgs === 'string' && imgs) return imgs
+    }
     return undefined
   })()
 
@@ -426,10 +429,10 @@ function BookingPageContent() {
                   <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Number of Guests</h2>
                   <p className="text-muted-foreground text-sm">
                     {type === 'property'
-                      ? `This property accommodates up to ${item?.capacity ?? '??'} guests.`
+                      ? `This property has ${item?.total_rooms ?? '??'} rooms available.`
                       : type === 'car'
-                      ? `This vehicle seats up to ${item?.seats ?? item?.capacity ?? '??'} passengers.`
-                      : 'How many guests will be attending?'}
+                      ? `This vehicle seats up to ${item?.capacity ?? '??'} passengers.`
+                      : `This service accommodates up to ${item?.max_guests_per_day ?? item?.capacity ?? '??'} guests per day.`}
                   </p>
                 </div>
                 <div>
@@ -440,7 +443,7 @@ function BookingPageContent() {
                   <Input
                     type="number"
                     min={1}
-                    max={type === 'property' ? (item?.capacity ?? 20) : (item?.seats ?? item?.capacity ?? 10)}
+                    max={type === 'property' ? (item?.total_rooms ?? 20) : (item?.capacity ?? item?.max_guests_per_day ?? 10)}
                     value={guests}
                     onChange={e => setGuests(e.target.value)}
                     className="w-32"

@@ -17,12 +17,13 @@ interface Service {
 
 interface ServicesSelectorProps {
   onServicesChange: (services: Array<{ id: number; name: string; price: number }>) => void
-  initialServices?: number[]
+  selectedServices?: number[]  // controlled: ids of currently selected services
+  initialServices?: number[]   // uncontrolled: initial selection on first render
   nights?: number
 }
 
-export function ServicesSelector({ onServicesChange, initialServices = [], nights = 1 }: ServicesSelectorProps) {
-  const [selectedServices, setSelectedServices] = useState<number[]>(initialServices)
+export function ServicesSelector({ onServicesChange, selectedServices: controlledIds, initialServices = [], nights = 1 }: ServicesSelectorProps) {
+  const [selectedServices, setSelectedServices] = useState<number[]>(controlledIds ?? initialServices)
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
 

@@ -73,6 +73,7 @@ export default async function ServicesPage() {
                   description={service.description || 'Premium service'}
                   price={service.price_per_day || 0}
                   duration="Per day"
+                  image_url={service.image_url}
                 />
               ))
             ) : (

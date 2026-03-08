@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import {
   Car,
   Utensils,
@@ -14,7 +15,6 @@ import {
   Loader2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
-import { SERVICES as SAMPLE_SERVICES } from '@/lib/constants/rwanda-data'
 
 interface Service {
   id: number
@@ -37,6 +37,7 @@ const serviceIcons: Record<string, any> = {
 }
 
 export function ServicesHighlight() {
+  const router = useRouter()
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -49,22 +50,16 @@ export function ServicesHighlight() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('services')
-        .select('*')
+        .select('id,name,service_type,description,price_per_day,is_active')
+        .eq('is_active', true)
         .order('created_at', { ascending: false })
         .limit(6)
 
       if (error) throw error
-
-      if (data && data.length > 0) {
-        setServices(data)
-      } else {
-        // Fallback to sample data if no services in database
-        setServices(SAMPLE_SERVICES.slice(0, 6) as unknown as Service[])
-      }
+      setServices(data && data.length > 0 ? data : [])
     } catch (error) {
       console.error('Error fetching services:', error)
-      // Fallback to sample data on error
-      setServices(SAMPLE_SERVICES.slice(0, 6) as unknown as Service[])
+      setServices([])
     } finally {
       setLoading(false)
     }
@@ -117,6 +112,12 @@ export function ServicesHighlight() {
                   <p className="text-accent font-semibold mt-auto">
                     From {(service.price_per_day / 1000).toFixed(0)}K RWF/day
                   </p>
+                  <button
+                    onClick={() => router.push(`/booking?type=service&id=${service.id}`)}
+                    className="mt-4 w-full bg-accent text-accent-foreground hover:bg-accent/90 px-4 py-2 rounded-lg font-semibold transition-all duration-300 text-sm"
+                  >
+                    Book Now
+                  </button>
                 </div>
               )
             })
