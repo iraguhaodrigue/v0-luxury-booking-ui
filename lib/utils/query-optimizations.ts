@@ -11,8 +11,8 @@ export const querySelectors = {
   // Cars - minimal set for listings (include image_url as primary image source)
   carsListing: 'id,make,model,year,price_per_day,capacity,transmission,fuel_type,image_url,images,status',
   
-  // Cars - full for detail pages
-  carsFull: 'id,make,model,year,price_per_day,capacity,transmission,fuel_type,image_url,images,description,status,created_at,color,mileage_limit,license_plate',
+  // Cars - full for detail pages (description column does NOT exist in cars table)
+  carsFull: 'id,make,model,year,price_per_day,capacity,transmission,fuel_type,image_url,images,status,created_at,color,mileage_limit,license_plate',
   
   // Services - minimal set for listings
   servicesListing: 'id,name,service_type,category,price_per_day,description,image_url,is_active',

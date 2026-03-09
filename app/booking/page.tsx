@@ -117,9 +117,10 @@ function BookingPageContent() {
 
       if (type === 'car') {
         // Cars table: id, make, model, year, license_plate, color, capacity, transmission, fuel_type, price_per_day, images, status, mileage_limit
+        // NOTE: 'description' does NOT exist in the cars table — omit it
         query = supabase
           .from('cars')
-          .select('id,make,model,year,capacity,transmission,fuel_type,price_per_day,image_url,images,status,color,license_plate,mileage_limit,description')
+          .select('id,make,model,year,capacity,transmission,fuel_type,price_per_day,image_url,images,status,color,license_plate,mileage_limit')
           .eq('id', numericId)
       } else if (type === 'service') {
         // Services table: id, name, description, price_per_day, image_url, service_type, category, max_guests_per_day, is_active
@@ -510,7 +511,7 @@ function BookingPageContent() {
                   <p className="text-muted-foreground text-sm">Enhance your stay with optional services.</p>
                 </div>
                 <ServicesSelector
-                  selectedServices={selectedServices}
+                  selectedServices={selectedServices.map(s => s.id)}
                   onServicesChange={setSelectedServices}
                   nights={nights || 1}
                 />

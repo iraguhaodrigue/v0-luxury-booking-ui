@@ -23,9 +23,16 @@ interface ServicesSelectorProps {
 }
 
 export function ServicesSelector({ onServicesChange, selectedServices: controlledIds, initialServices = [], nights = 1 }: ServicesSelectorProps) {
-  const [selectedServices, setSelectedServices] = useState<number[]>(controlledIds ?? initialServices)
+  const [localIds, setLocalIds] = useState<number[]>(controlledIds ?? initialServices)
   const [services, setServices] = useState<Service[]>([])
   const [loading, setLoading] = useState(true)
+
+  // Keep local ids in sync when the controlled prop changes from outside
+  useEffect(() => {
+    if (controlledIds !== undefined) {
+      setLocalIds(controlledIds)
+    }
+  }, [controlledIds])
 
   useEffect(() => {
     fetchServices()
@@ -58,11 +65,11 @@ export function ServicesSelector({ onServicesChange, selectedServices: controlle
   }
 
   const handleServiceToggle = (service: Service) => {
-    const updated = selectedServices.includes(service.id)
-      ? selectedServices.filter((id) => id !== service.id)
-      : [...selectedServices, service.id]
+    const updated = localIds.includes(service.id)
+      ? localIds.filter((id) => id !== service.id)
+      : [...localIds, service.id]
 
-    setSelectedServices(updated)
+    setLocalIds(updated)
     // Emit full service objects so the parent can price correctly from DB data
     const fullObjects = services
       .filter(s => updated.includes(s.id))
@@ -71,7 +78,7 @@ export function ServicesSelector({ onServicesChange, selectedServices: controlle
   }
 
   const totalServicePrice = services
-    .filter((s) => selectedServices.includes(s.id))
+    .filter((s) => localIds.includes(s.id))
     .reduce((sum, s) => sum + s.price, 0)
 
   if (loading) {
@@ -97,7 +104,7 @@ export function ServicesSelector({ onServicesChange, selectedServices: controlle
       {/* Services Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
         {services.map((service) => {
-          const isSelected = selectedServices.includes(service.id)
+          const isSelected = localIds.includes(service.id)
 
           return (
             <button
@@ -146,10 +153,10 @@ export function ServicesSelector({ onServicesChange, selectedServices: controlle
       </div>
 
       {/* Total Services Price */}
-      {selectedServices.length > 0 && (
+      {localIds.length > 0 && (
         <div className="bg-secondary rounded-lg p-4">
           <div className="flex justify-between items-center">
-            <span className="font-semibold text-foreground">Services Total ({selectedServices.length})</span>
+            <span className="font-semibold text-foreground">Services Total ({localIds.length})</span>
             <span className="text-xl font-bold text-accent">
               {formatPrice(totalServicePrice, false)}
             </span>
