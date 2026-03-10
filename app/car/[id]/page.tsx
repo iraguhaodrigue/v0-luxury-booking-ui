@@ -6,7 +6,9 @@ import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { createClient } from '@/lib/supabase/client'
 import { logger } from '@/lib/utils/logger'
-import { Loader2, ChevronLeft, ChevronRight, Users, Zap, Gauge } from 'lucide-react'
+import { ImageGallery } from '@/components/ui/image-gallery'
+import { BackButton } from '@/components/ui/back-button'
+import { Loader2, Users, Zap, Gauge } from 'lucide-react'
 import Link from 'next/link'
 
 interface Car {
@@ -33,7 +35,6 @@ export default function CarDetailPage() {
 
   const [car, setCar] = useState<Car | null>(null)
   const [loading, setLoading] = useState(true)
-  const [selectedImageIndex, setSelectedImageIndex] = useState(0)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
@@ -66,14 +67,6 @@ export default function CarDetailPage() {
     } finally {
       setLoading(false)
     }
-  }
-
-  const handleNextImage = () => {
-    setSelectedImageIndex((prev) => (prev + 1) % (car?.images?.length || 1))
-  }
-
-  const handlePrevImage = () => {
-    setSelectedImageIndex((prev) => (prev - 1 + (car?.images?.length || 1)) % (car?.images?.length || 1))
   }
 
   const handleBooking = () => {
@@ -115,15 +108,6 @@ export default function CarDetailPage() {
     )
   }
 
-  // Resolve images: prefer gallery array, fall back to image_url, then placeholder
-  const FALLBACK_IMG = 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=1200&q=80'
-  const galleryImages: string[] = (car.images && car.images.length > 0)
-    ? car.images
-    : car.image_url
-      ? [car.image_url]
-      : [FALLBACK_IMG]
-
-  const mainImage = galleryImages[selectedImageIndex] || FALLBACK_IMG
   const isAvailable = car.status === 'available'
 
   return (
@@ -132,87 +116,17 @@ export default function CarDetailPage() {
 
       <section className="py-12 md:py-20 bg-background">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <Link href="/car-rental" className="inline-flex items-center text-accent hover:text-accent/80 mb-8">
-            <ChevronLeft className="w-4 h-4 mr-1" />
-            Back to Fleet
-          </Link>
+          <BackButton label="Back to Fleet" />
 
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 md:gap-12 mt-8">
             {/* Images */}
-            <div className="space-y-3 md:space-y-4 order-2 lg:order-1">
-              {/* Main Image */}
-              <div className="relative h-64 sm:h-80 md:h-96 lg:h-[500px] overflow-hidden rounded-lg bg-muted">
-                {mainImage ? (
-                  <img
-                    src={mainImage}
-                    alt={`${car.make} ${car.model}`}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center bg-muted-foreground/10">
-                    <span className="text-muted-foreground">No image available</span>
-                  </div>
-                )}
-
-                {/* Navigation Buttons */}
-                {galleryImages.length > 1 && (
-                  <>
-                    <button
-                      onClick={handlePrevImage}
-                      className="absolute left-2 sm:left-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 sm:p-2 rounded-full transition"
-                      aria-label="Previous image"
-                    >
-                      <ChevronLeft className="w-4 sm:w-6 h-4 sm:h-6" />
-                    </button>
-                    <button
-                      onClick={handleNextImage}
-                      className="absolute right-2 sm:right-4 top-1/2 -translate-y-1/2 bg-black/50 hover:bg-black/70 text-white p-1.5 sm:p-2 rounded-full transition"
-                      aria-label="Next image"
-                    >
-                      <ChevronRight className="w-4 sm:w-6 h-4 sm:h-6" />
-                    </button>
-                  </>
-                )}
-
-                {/* Status Badge */}
-                <div className="absolute top-3 right-3 sm:top-4 sm:right-4">
-                  {isAvailable ? (
-                    <span className="inline-block bg-accent text-accent-foreground px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">
-                      Available
-                    </span>
-                  ) : (
-                    <span className="inline-block bg-red-500 text-white px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-full text-xs sm:text-sm font-semibold">
-                      Booked
-                    </span>
-                  )}
-                </div>
-              </div>
-
-              {/* Thumbnails */}
-              {galleryImages.length > 1 && (
-                <div className="grid grid-cols-4 gap-2">
-                  {galleryImages.map((img, idx) => (
-                    <button
-                      key={idx}
-                      onClick={() => setSelectedImageIndex(idx)}
-                      className={`relative h-16 sm:h-20 overflow-hidden rounded-lg border-2 transition ${
-                        idx === selectedImageIndex
-                          ? 'border-accent'
-                          : 'border-border hover:border-accent/50'
-                      }`}
-                      aria-label={`View image ${idx + 1}`}
-                    >
-                      <img
-                        src={img}
-                        alt={`Thumbnail ${idx + 1}`}
-                        className="w-full h-full object-cover"
-                        loading="lazy"
-                      />
-                    </button>
-                  ))}
-                </div>
-              )}
+            <div className="order-2 lg:order-1">
+              <ImageGallery
+                imageUrl={car.image_url}
+                images={car.images}
+                alt={`${car.make} ${car.model}`}
+                mainHeightClass="h-64 sm:h-80 md:h-96 lg:h-[480px]"
+              />
             </div>
 
             {/* Details */}
