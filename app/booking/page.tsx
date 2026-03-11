@@ -1,14 +1,13 @@
 'use client'
 
-import { useState, Suspense, useEffect, useRef } from 'react'
+import { useState, Suspense, useEffect } from 'react'
 import Link from 'next/link'
-import { useSearchParams, useRouter } from 'next/navigation'
+import { useSearchParams } from 'next/navigation'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { BookingSteps } from '@/components/booking/booking-steps'
 import { ServicesSelector } from '@/components/booking/services-selector'
 import { BookingSummary } from '@/components/booking/booking-summary'
-import { ImageGallery } from '@/components/ui/image-gallery'
 import { formatPrice } from '@/lib/utils/currency'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
@@ -61,12 +60,8 @@ interface BookableItem {
 
 function BookingPageContent() {
   const searchParams = useSearchParams()
-  const router = useRouter()
   const type = (searchParams.get('type') || 'property') as 'property' | 'car' | 'service'
   const id   = searchParams.get('id')
-
-  // Keep a ref to the item so it survives between renders even if state resets
-  const itemRef = useRef<BookableItem | null>(null)
 
   // Navigation
   const [currentStep, setCurrentStep] = useState(1)
@@ -144,22 +139,16 @@ function BookingPageContent() {
       const { data, error: fetchError } = await query.single()
 
       if (fetchError || !data) {
-        // Only show error if we don't already have the item from a previous fetch
-        if (!itemRef.current) {
-          setError(`Could not load ${type} details. (${fetchError?.message ?? 'not found'})`)
-        }
+        setError(`Could not load ${type} details. (${fetchError?.message ?? 'not found'})`)
       } else {
         // Normalize car name from make/model/year
         if (type === 'car') {
           const car = data as any
-          const normalized = { 
+          setItem({ 
             ...car, 
             name: `${car.year ?? ''} ${car.make ?? ''} ${car.model ?? ''}`.trim() 
-          } as BookableItem
-          itemRef.current = normalized
-          setItem(normalized)
+          } as BookableItem)
         } else {
-          itemRef.current = data as BookableItem
           setItem(data as BookableItem)
         }
       }
@@ -179,11 +168,11 @@ function BookingPageContent() {
   })()
 
   const baseRate = (() => {
-    if (!effectiveItem) return 0
-    if (type === 'property') return effectiveItem.base_price_per_night ?? 0
-    if (type === 'car')      return effectiveItem.price_per_day ?? 0
+    if (!item) return 0
+    if (type === 'property') return item.base_price_per_night ?? 0
+    if (type === 'car')      return item.price_per_day ?? 0
     // service: price_per_day is the correct column name
-    return effectiveItem.price_per_day ?? 0
+    return item.price_per_day ?? item.price ?? 0
   })()
 
   const itemTotal     = baseRate * (nights || 1)
@@ -200,7 +189,7 @@ function BookingPageContent() {
     return true
   })()
 
-  // ─── Complete booking ────────────────────────────────────────��───────────────
+  // ─── Complete booking ────────────────────────────────────────────────────────
 
   const handleCompleteBooking = async () => {
     try {
@@ -228,9 +217,9 @@ function BookingPageContent() {
       const { data, error: dbError } = await supabase
         .from('bookings')
         .insert({
-          item_id:        String(effectiveItem?.id),
+          item_id:        String(item?.id),
           item_type:      type,
-          item_name:      effectiveItem?.name ?? '',
+          item_name:      item?.name ?? '',
           user_name:      userName,
           user_email:     userEmail,
           user_phone:     userPhone,
@@ -264,16 +253,13 @@ function BookingPageContent() {
     }
   }
 
-  // Use the ref as a fallback if state was cleared on re-render
-  const effectiveItem = item ?? itemRef.current
-
   // ─── Image helper ─────────────────────────────────────────────────────────────
   // Priority: image_url (cars/services) → images[0] (properties/cars gallery)
   const itemImage = (() => {
-    if (!effectiveItem) return undefined
-    if (effectiveItem.image_url) return effectiveItem.image_url
-    if (effectiveItem.images) {
-      const imgs = effectiveItem.images
+    if (!item) return undefined
+    if (item.image_url) return item.image_url
+    if (item.images) {
+      const imgs = item.images
       if (Array.isArray(imgs) && imgs.length > 0) return imgs[0]
       if (typeof imgs === 'string' && imgs) return imgs
     }
@@ -295,7 +281,7 @@ function BookingPageContent() {
     )
   }
 
-  if (!loading && (error || !effectiveItem)) {
+  if (!loading && (error || !item)) {
     return (
       <main className="w-full">
         <Navbar />
@@ -331,7 +317,7 @@ function BookingPageContent() {
               <span className="font-mono font-semibold text-foreground text-xs">{bookingId}</span>
             </div>
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">{effectiveItem!.name}</span>
+              <span className="text-muted-foreground">{item!.name}</span>
               <span className="text-foreground font-semibold">{nights} night{nights !== 1 ? 's' : ''}</span>
             </div>
             <div className="flex justify-between text-sm">
@@ -373,7 +359,7 @@ function BookingPageContent() {
             Complete Your Booking
           </h1>
           <p className="text-muted-foreground mt-1">
-            {effectiveItem?.name} &mdash; {nights > 0 ? `${nights} night${nights !== 1 ? 's' : ''}` : 'Select dates below'}
+            {item?.name} &mdash; {nights > 0 ? `${nights} night${nights !== 1 ? 's' : ''}` : 'Select dates below'}
           </p>
         </div>
       </div>
@@ -444,10 +430,10 @@ function BookingPageContent() {
                   <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Number of Guests</h2>
                   <p className="text-muted-foreground text-sm">
                     {type === 'property'
-                      ? `This property has ${effectiveItem?.total_rooms ?? '??'} rooms available.`
+                      ? `This property has ${item?.total_rooms ?? '??'} rooms available.`
                       : type === 'car'
-                      ? `This vehicle seats up to ${effectiveItem?.capacity ?? '??'} passengers.`
-                      : `This service accommodates up to ${effectiveItem?.max_guests_per_day ?? effectiveItem?.capacity ?? '??'} guests per day.`}
+                      ? `This vehicle seats up to ${item?.capacity ?? '??'} passengers.`
+                      : `This service accommodates up to ${item?.max_guests_per_day ?? item?.capacity ?? '??'} guests per day.`}
                   </p>
                 </div>
                 <div>
@@ -458,7 +444,7 @@ function BookingPageContent() {
                   <Input
                     type="number"
                     min={1}
-                    max={type === 'property' ? (effectiveItem?.total_rooms ?? 20) : (effectiveItem?.capacity ?? effectiveItem?.max_guests_per_day ?? 10)}
+                    max={type === 'property' ? (item?.total_rooms ?? 20) : (item?.capacity ?? item?.max_guests_per_day ?? 10)}
                     value={guests}
                     onChange={e => setGuests(e.target.value)}
                     className="w-32"
@@ -563,7 +549,7 @@ function BookingPageContent() {
                   <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide">Stay Details</h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                     {[
-                      { label: 'Property',  value: effectiveItem!.name },
+                      { label: 'Property',  value: item!.name },
                       { label: 'Check-in',  value: checkIn },
                       { label: 'Check-out', value: checkOut },
                       { label: 'Nights',    value: `${nights}` },
@@ -581,7 +567,7 @@ function BookingPageContent() {
                   <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide">Price Breakdown</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">{effectiveItem!.name} ({nights} night{nights !== 1 ? 's' : ''})</span>
+                      <span className="text-muted-foreground">{item!.name} ({nights} night{nights !== 1 ? 's' : ''})</span>
                       <span className="font-semibold text-foreground">{formatPrice(itemTotal)}</span>
                     </div>
                     {extrasTotal > 0 && (
@@ -723,9 +709,9 @@ function BookingPageContent() {
                   Back
                 </Button>
               ) : (
-                <Button variant="outline" onClick={() => router.back()}>
-                  Cancel
-                </Button>
+                <Link href={type === 'car' ? '/car-rental' : type === 'service' ? '/services' : '/properties'}>
+                  <Button variant="outline">Cancel</Button>
+                </Link>
               )}
 
               {currentStep < bookingSteps.length ? (
@@ -753,20 +739,11 @@ function BookingPageContent() {
           </div>
 
           {/* ── Right / summary column ── */}
-          <div className="hidden lg:block space-y-4">
-            {/* Item image gallery */}
-            {effectiveItem && (
-              <ImageGallery
-                imageUrl={effectiveItem.image_url}
-                images={effectiveItem.images}
-                alt={effectiveItem.name}
-                mainHeightClass="h-52"
-              />
-            )}
+          <div className="hidden lg:block">
             <BookingSummary
-              property={effectiveItem ? {
-                name:          effectiveItem.name,
-                location:      effectiveItem.location ?? 'Rwanda',
+              property={item ? {
+                name:          item.name,
+                location:      item.location ?? 'Rwanda',
                 pricePerNight: baseRate,
                 image:         itemImage,
               } : undefined}

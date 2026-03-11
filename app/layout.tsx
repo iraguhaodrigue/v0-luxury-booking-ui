@@ -2,10 +2,10 @@ import type { Metadata, Viewport } from 'next'
 import './globals.css'
 
 export const metadata: Metadata = {
-  title: 'KILUVA — Discover Villas, Apartments, Cars & Services',
-  description: 'Book villas, apartments, cars and services easily with Kiluva.',
-  keywords: ['luxury villas Rwanda', 'apartments', 'car rental', 'premium services', 'Kiluva', 'Rwanda hospitality'],
-  authors: [{ name: 'KILUVA' }],
+  title: 'Rwanda Luxury | Premium Villas & Hospitality',
+  description: 'Experience luxury living in Rwanda. Book exquisite villas, hotel rooms, and premium services in Kigali, Rubavu, Musanze, and Huye.',
+  keywords: ['luxury villas Rwanda', 'hotel rooms', 'Rwanda hospitality', 'Kigali villas', 'premium accommodations'],
+  authors: [{ name: 'Rwanda Luxury Hospitality' }],
 }
 
 export const viewport: Viewport = {

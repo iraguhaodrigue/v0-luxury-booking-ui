@@ -1,11 +1,9 @@
-import { notFound } from 'next/navigation'
+import { notFound, redirect } from 'next/navigation'
 import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { Button } from '@/components/ui/button'
-import { ImageGallery } from '@/components/ui/image-gallery'
-import { BackButton } from '@/components/ui/back-button'
-import { Users, Check, MapPin } from 'lucide-react'
+import { Heart, MapPin, Users, DollarSign, Check } from 'lucide-react'
 import Link from 'next/link'
 import { formatPrice } from '@/lib/utils/currency'
 
@@ -19,57 +17,80 @@ async function getProperty(id: string) {
     const { data, error } = await supabase
       .from('properties')
       .select('*')
-      .eq('id', Number(id))
+      .eq('id', parseInt(id))
       .single()
 
-    if (error || !data) return null
+    if (error || !data) {
+      console.error('[v0] Property not found:', id, error)
+      return null
+    }
+
     return data
-  } catch {
+  } catch (error) {
+    console.error('[v0] Error fetching property:', error)
     return null
   }
 }
 
 export async function generateMetadata({ params }: PropertyDetailsPageProps) {
-  const { id } = await params
-  const property = await getProperty(id)
+  const resolvedParams = await params
+  const property = await getProperty(resolvedParams.id)
 
   if (!property) {
-    return { title: 'Property Not Found | KILUVA' }
+    return {
+      title: 'Property Not Found | Rwanda Luxury Hospitality',
+      description: 'The property you are looking for does not exist.',
+    }
   }
 
   return {
-    title: `${property.name} | KILUVA`,
+    title: `${property.name} | Rwanda Luxury Hospitality`,
     description: property.description || `${property.name} in ${property.location}, Rwanda`,
   }
 }
 
 export default async function PropertyDetailsPage({ params }: PropertyDetailsPageProps) {
-  const { id } = await params
-  const property = await getProperty(id)
+  const resolvedParams = await params
+  const property = await getProperty(resolvedParams.id)
 
-  if (!property) notFound()
+  if (!property) {
+    notFound()
+  }
 
-  const amenitiesList: string[] = Array.isArray(property.amenities)
+  const amenitiesList = Array.isArray(property.amenities)
     ? property.amenities
     : typeof property.amenities === 'string'
-      ? (property.amenities as string).split(',').map((a: string) => a.trim()).filter(Boolean)
+      ? property.amenities.split(',').map((a: string) => a.trim())
       : []
+
+  const images = Array.isArray(property.images) ? property.images : [property.images || '']
 
   return (
     <main className="w-full">
       <Navbar />
 
       {/* Image Gallery */}
-      <section className="w-full py-6 bg-background">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <BackButton />
-          <div className="mt-4">
-            <ImageGallery
-              images={property.images}
+      <section className="w-full">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 h-[500px] md:h-[600px]">
+          {/* Main Image */}
+          <div className="md:col-span-2 md:row-span-2 overflow-hidden rounded-lg">
+            <img
+              src={images[0] || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200&q=80'}
               alt={property.name}
-              mainHeightClass="h-72 sm:h-96 md:h-[520px]"
+              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
             />
           </div>
+
+          {/* Thumbnail Images */}
+          {images.slice(1, 5).map((image, index) => (
+            <div key={index} className="overflow-hidden rounded-lg hidden md:block">
+              <img
+                src={image}
+                alt={`${property.name} - ${index + 2}`}
+                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
+              />
+            </div>
+          ))}
         </div>
       </section>
 
@@ -81,22 +102,27 @@ export default async function PropertyDetailsPage({ params }: PropertyDetailsPag
             <div className="lg:col-span-2">
               {/* Header */}
               <div className="mb-8">
-                <h1 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-2">
-                  {property.name}
-                </h1>
-                <div className="flex items-center text-muted-foreground">
-                  <MapPin className="w-5 h-5 mr-2 text-accent" />
-                  <span>{property.location}{property.country ? `, ${property.country}` : ''}</span>
+                <div className="flex items-start justify-between mb-4">
+                  <div>
+                    <h1 className="text-4xl md:text-5xl font-serif font-bold text-foreground mb-2">
+                      {property.name}
+                    </h1>
+                    <div className="flex items-center text-muted-foreground">
+                      <MapPin className="w-5 h-5 mr-2" />
+                      <span>{property.location}, {property.country}</span>
+                    </div>
+                  </div>
+                  <button className="p-2 hover:bg-secondary rounded-lg transition-colors">
+                    <Heart className="w-6 h-6 text-muted-foreground" />
+                  </button>
                 </div>
               </div>
 
               {/* Description */}
-              {property.description && (
-                <div className="mb-8">
-                  <h2 className="text-2xl font-serif font-bold text-foreground mb-4">About</h2>
-                  <p className="text-muted-foreground text-lg leading-relaxed">{property.description}</p>
-                </div>
-              )}
+              <div className="mb-8">
+                <h2 className="text-2xl font-serif font-bold text-foreground mb-4">About</h2>
+                <p className="text-muted-foreground text-lg leading-relaxed">{property.description}</p>
+              </div>
 
               {/* Amenities */}
               {amenitiesList.length > 0 && (
@@ -105,7 +131,7 @@ export default async function PropertyDetailsPage({ params }: PropertyDetailsPag
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                     {amenitiesList.map((amenity, index) => (
                       <div key={index} className="flex items-center text-foreground">
-                        <Check className="w-5 h-5 text-accent mr-3 flex-shrink-0" />
+                        <Check className="w-5 h-5 text-accent mr-3" />
                         <span>{amenity}</span>
                       </div>
                     ))}
@@ -113,7 +139,7 @@ export default async function PropertyDetailsPage({ params }: PropertyDetailsPag
                 </div>
               )}
 
-              {/* Capacity */}
+              {/* Rooms/Capacity */}
               {property.total_rooms && (
                 <div className="mb-8">
                   <h2 className="text-2xl font-serif font-bold text-foreground mb-4">Capacity</h2>
