@@ -1,74 +1,62 @@
+import { redirect } from 'next/navigation'
+import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layouts/navbar'
 import { DashboardSidebar } from '@/components/layouts/dashboard-sidebar'
 import { Footer } from '@/components/layouts/footer'
-import { MapPin, Calendar, DollarSign, Download, Eye } from 'lucide-react'
-
-const bookings = [
-  {
-    id: 'BK-001',
-    property: 'Mediterranean Escape',
-    location: 'Santorini, Greece',
-    checkIn: '2025-03-15',
-    checkOut: '2025-03-22',
-    status: 'Confirmed',
-    total: 5950,
-    nights: 7,
-    image: 'https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=300&q=80',
-  },
-  {
-    id: 'BK-002',
-    property: 'Tropical Paradise',
-    location: 'Bali, Indonesia',
-    checkIn: '2025-04-10',
-    checkOut: '2025-04-17',
-    status: 'Pending',
-    total: 4550,
-    nights: 7,
-    image: 'https://images.unsplash.com/photo-1551821440-e5b88667fab0?w=300&q=80',
-  },
-  {
-    id: 'BK-003',
-    property: 'Alpine Luxury Retreat',
-    location: 'Swiss Alps, Switzerland',
-    checkIn: '2025-05-01',
-    checkOut: '2025-05-08',
-    status: 'Confirmed',
-    total: 8400,
-    nights: 7,
-    image: 'https://images.unsplash.com/photo-1631049307038-da8ec40ed52d?w=300&q=80',
-  },
-  {
-    id: 'BK-004',
-    property: 'Coastal Villa Deluxe',
-    location: 'Maldives',
-    checkIn: '2025-02-10',
-    checkOut: '2025-02-17',
-    status: 'Completed',
-    total: 6650,
-    nights: 7,
-    image: 'https://images.unsplash.com/photo-1506126613408-eca07ce68773?w=300&q=80',
-  },
-  {
-    id: 'BK-005',
-    property: 'Manhattan Penthouse',
-    location: 'New York, USA',
-    checkIn: '2024-12-01',
-    checkOut: '2024-12-05',
-    status: 'Completed',
-    total: 3000,
-    nights: 4,
-    image: 'https://images.unsplash.com/photo-1512917774080-9a485dc1d1fb?w=300&q=80',
-  },
-]
+import { formatPrice } from '@/lib/utils/currency'
+import { Calendar, MapPin, Eye, Download, Filter } from 'lucide-react'
+import Link from 'next/link'
 
 export const metadata = {
-  title: 'My Bookings | Luxury Stays',
-  description: 'View and manage all your luxury stay bookings',
+  title: 'My Bookings | KILUVA Dashboard',
+  description: 'View and manage all your bookings',
 }
 
-export default function BookingsPage() {
-  const confirmedCount = bookings.filter((b) => b.status === 'Confirmed').length
-  const completedCount = bookings.filter((b) => b.status === 'Completed').length
+interface Booking {
+  id: string
+  item_name: string
+  item_type: string
+  checkin: string
+  checkout: string
+  status: 'pending' | 'confirmed' | 'rejected' | 'completed'
+  total_price: number
+  created_at: string
+}
+
+export default async function BookingsPage() {
+  const supabase = await createClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  if (!user) {
+    redirect('/auth/login')
+  }
+
+  // Fetch user's bookings
+  const { data: bookings } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('user_email', user.email)
+    .order('created_at', { ascending: false })
+
+  const allBookings = (bookings as Booking[]) || []
+  const confirmedCount = allBookings.filter(b => b.status === 'confirmed').length
+  const pendingCount = allBookings.filter(b => b.status === 'pending').length
+  const completedCount = allBookings.filter(b => b.status === 'completed').length
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+        return 'bg-green-100 text-green-800'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'completed':
+        return 'bg-blue-100 text-blue-800'
+      case 'rejected':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
+  }
 
   return (
     <main className="w-full min-h-screen flex flex-col">
@@ -85,25 +73,33 @@ export default function BookingsPage() {
                 My Bookings
               </h1>
               <p className="text-muted-foreground">
-                View and manage all your luxury stay reservations
+                Manage and track all your reservations
               </p>
             </div>
 
             {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
               <div className="card-luxury">
                 <p className="text-muted-foreground text-sm mb-1">
                   Total Bookings
                 </p>
                 <p className="text-3xl font-bold text-foreground">
-                  {bookings.length}
+                  {allBookings.length}
+                </p>
+              </div>
+              <div className="card-luxury">
+                <p className="text-muted-foreground text-sm mb-1">
+                  Pending
+                </p>
+                <p className="text-3xl font-bold text-yellow-500">
+                  {pendingCount}
                 </p>
               </div>
               <div className="card-luxury">
                 <p className="text-muted-foreground text-sm mb-1">
                   Confirmed
                 </p>
-                <p className="text-3xl font-bold text-accent">
+                <p className="text-3xl font-bold text-green-500">
                   {confirmedCount}
                 </p>
               </div>
@@ -111,125 +107,134 @@ export default function BookingsPage() {
                 <p className="text-muted-foreground text-sm mb-1">
                   Completed
                 </p>
-                <p className="text-3xl font-bold text-foreground">
+                <p className="text-3xl font-bold text-blue-500">
                   {completedCount}
                 </p>
               </div>
             </div>
 
-            {/* Bookings List */}
-            <div className="bg-card rounded-lg shadow-luxury overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border bg-secondary">
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
-                        Property
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
-                        Dates
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
-                        Status
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
-                        Total
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bookings.map((booking) => (
-                      <tr
-                        key={booking.id}
-                        className="border-b border-border hover:bg-secondary/30 transition-colors"
-                      >
-                        {/* Property */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-3">
-                            <img
-                              src={booking.image}
-                              alt={booking.property}
-                              className="w-12 h-12 rounded-lg object-cover"
-                            />
+            {/* Bookings List or Empty State */}
+            {allBookings.length === 0 ? (
+              <div className="card-luxury text-center py-16">
+                <Calendar className="w-16 h-16 text-muted-foreground/30 mx-auto mb-4" />
+                <h2 className="text-2xl font-serif font-bold text-foreground mb-2">
+                  No bookings yet
+                </h2>
+                <p className="text-muted-foreground mb-6">
+                  Start exploring and book your dream stay or service!
+                </p>
+                <div className="flex gap-4 justify-center">
+                  <a href="/properties">
+                    <button className="btn-luxury-accent">
+                      Browse Properties
+                    </button>
+                  </a>
+                  <a href="/services">
+                    <button className="btn-luxury-ghost">
+                      Explore Services
+                    </button>
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="bg-card rounded-lg shadow-luxury overflow-hidden">
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-border bg-secondary">
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
+                          Item
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
+                          Dates
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
+                          Status
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
+                          Total
+                        </th>
+                        <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
+                          Actions
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {allBookings.map((booking) => (
+                        <tr
+                          key={booking.id}
+                          className="border-b border-border hover:bg-secondary/50 transition-colors"
+                        >
+                          {/* Item */}
+                          <td className="px-6 py-4">
                             <div>
                               <p className="font-semibold text-foreground">
-                                {booking.property}
+                                {booking.item_name || 'Booking'}
                               </p>
-                              <div className="flex items-center space-x-1 text-muted-foreground text-xs mt-1">
-                                <MapPin className="w-3 h-3" />
-                                <span>{booking.location}</span>
-                              </div>
+                              <p className="text-xs text-muted-foreground mt-1 capitalize">
+                                {booking.item_type || 'property'}
+                              </p>
                             </div>
-                          </div>
-                        </td>
+                          </td>
 
-                        {/* Dates */}
-                        <td className="px-6 py-4 text-sm">
-                          <div className="flex items-center space-x-1 text-muted-foreground">
-                            <Calendar className="w-4 h-4" />
-                            <span>
-                              {new Date(booking.checkIn).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })}{' '}
-                              -{' '}
-                              {new Date(booking.checkOut).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })}
+                          {/* Dates */}
+                          <td className="px-6 py-4 text-sm">
+                            <div className="flex items-center space-x-2 text-muted-foreground">
+                              <Calendar className="w-4 h-4 flex-shrink-0" />
+                              <span>
+                                {new Date(booking.checkin).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}{' '}
+                                -{' '}
+                                {new Date(booking.checkout).toLocaleDateString('en-US', {
+                                  month: 'short',
+                                  day: 'numeric',
+                                })}
+                              </span>
+                            </div>
+                          </td>
+
+                          {/* Status */}
+                          <td className="px-6 py-4">
+                            <span
+                              className={`inline-block px-3 py-1 rounded-full text-xs font-semibold capitalize ${getStatusColor(booking.status)}`}
+                            >
+                              {booking.status}
                             </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {booking.nights} nights
-                          </p>
-                        </td>
+                          </td>
 
-                        {/* Status */}
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                              booking.status === 'Confirmed'
-                                ? 'bg-accent/10 text-accent'
-                                : booking.status === 'Pending'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-muted text-muted-foreground'
-                            }`}
-                          >
-                            {booking.status}
-                          </span>
-                        </td>
+                          {/* Total */}
+                          <td className="px-6 py-4 text-sm font-semibold text-foreground">
+                            {formatPrice(parseFloat(String(booking.total_price)) || 0)}
+                          </td>
 
-                        {/* Total */}
-                        <td className="px-6 py-4 text-sm font-semibold text-foreground">
-                          ${booking.total}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              title="View Details"
-                              className="p-2 hover:bg-secondary rounded-md transition-colors"
-                            >
-                              <Eye className="w-4 h-4 text-foreground" />
-                            </button>
-                            <button
-                              title="Download Invoice"
-                              className="p-2 hover:bg-secondary rounded-md transition-colors"
-                            >
-                              <Download className="w-4 h-4 text-foreground" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                          {/* Actions */}
+                          <td className="px-6 py-4">
+                            <div className="flex items-center space-x-2">
+                              <Link href={`/dashboard/bookings/${booking.id}`}>
+                                <button
+                                  title="View Details"
+                                  className="p-2 hover:bg-secondary rounded-md transition-colors text-foreground hover:text-accent"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                </button>
+                              </Link>
+                              <button
+                                title="Download Invoice"
+                                className="p-2 hover:bg-secondary rounded-md transition-colors text-foreground hover:text-accent"
+                              >
+                                <Download className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
               </div>
-            </div>
+            )}
           </div>
         </div>
       </div>
