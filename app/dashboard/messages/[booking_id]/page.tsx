@@ -69,12 +69,11 @@ export default function MessageThreadPage() {
         setBooking(bookingData as Booking)
       }
 
-      // Fetch messages for this booking
+      // Fetch messages for this booking (both from customer and admin)
       const { data: messagesData } = await supabase
         .from('messages')
         .select('*')
         .eq('booking_id', bookingId)
-        .eq('sender_email', user.email)
         .order('created_at', { ascending: true })
 
       if (messagesData) {

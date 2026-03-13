@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Send, MessageSquare, Mail, Clock, CheckCheck, User as UserIcon, Building } from 'lucide-react'
+import { useMessages } from '@/hooks/useMessages'
+import { useNotifications } from '@/contexts/NotificationsContext'
 
 interface DbMessage {
   id: string
@@ -32,16 +34,20 @@ interface Booking {
 }
 
 export default function CustomerMessagesPage() {
-  const [messages, setMessages]       = useState<DbMessage[]>([])
   const [bookings, setBookings]       = useState<Booking[]>([])
   const [selectedBooking, setSelectedBooking] = useState<string | null>(null)
   const [newMessage, setNewMessage]   = useState('')
   const [sending, setSending]         = useState(false)
   const [loading, setLoading]         = useState(true)
   const [userEmail, setUserEmail]     = useState<string | null>(null)
+  const [showBookingsList, setShowBookingsList] = useState(false)
   const bottomRef                     = useRef<HTMLDivElement>(null)
 
   const supabase = createClient()
+  const { addNotification } = useNotifications()
+  
+  // Use real-time messages hook
+  const { messages, loading: messagesLoading, unreadCount } = useMessages(userEmail)
 
   useEffect(() => {
     checkUserAndLoad()
@@ -137,8 +143,6 @@ export default function CustomerMessagesPage() {
     ? messages.filter(m => m.booking_id === selectedBooking || !m.booking_id)
     : messages
 
-  const unreadCount = messages.filter(m => !m.read_by_customer && m.sender_role === 'admin').length
-
   if (loading) {
     return (
       <main className="w-full min-h-screen flex flex-col">
@@ -179,17 +183,27 @@ export default function CustomerMessagesPage() {
 
         <div className="flex-1 flex flex-col overflow-hidden">
           {/* Header */}
-          <div className="border-b border-border px-6 py-4 flex items-center gap-3 bg-background">
-            <MessageSquare className="w-5 h-5 text-accent" />
-            <h1 className="text-xl font-serif font-bold text-foreground">Messages</h1>
-            {unreadCount > 0 && (
-              <Badge className="bg-accent text-accent-foreground">{unreadCount} new</Badge>
-            )}
+          <div className="border-b border-border px-6 py-4 flex items-center gap-3 bg-background justify-between md:justify-start">
+            <div className="flex items-center gap-3">
+              <MessageSquare className="w-5 h-5 text-accent" />
+              <h1 className="text-xl font-serif font-bold text-foreground">Messages</h1>
+              {unreadCount > 0 && (
+                <Badge className="bg-accent text-accent-foreground">{unreadCount} new</Badge>
+              )}
+            </div>
+            {/* Mobile toggle button */}
+            <button
+              onClick={() => setShowBookingsList(!showBookingsList)}
+              className="md:hidden px-3 py-1 text-sm font-semibold text-accent hover:bg-secondary rounded-md transition-colors"
+              aria-label={showBookingsList ? 'Hide bookings' : 'Show bookings'}
+            >
+              {showBookingsList ? '✕' : '☰ Bookings'}
+            </button>
           </div>
 
-          <div className="flex flex-1 overflow-hidden">
-            {/* Bookings sidebar */}
-            <div className="w-full max-w-xs border-r border-border flex flex-col overflow-hidden bg-secondary/30">
+          <div className="flex flex-1 overflow-hidden flex-col md:flex-row">
+            {/* Bookings sidebar - Hidden on mobile, shown on desktop / Toggle on mobile */}
+            <div className={`${showBookingsList ? 'flex' : 'hidden'} md:flex md:w-full md:max-w-xs border-r border-border flex-col overflow-hidden bg-secondary/30`}>
               <div className="px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide border-b border-border">
                 Your Bookings
               </div>
