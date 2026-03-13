@@ -143,8 +143,6 @@ export default function CustomerMessagesPage() {
     ? messages.filter(m => m.booking_id === selectedBooking || !m.booking_id)
     : messages
 
-  const unreadCount = messages.filter(m => !m.read_by_customer && m.sender_role === 'admin').length
-
   if (loading) {
     return (
       <main className="w-full min-h-screen flex flex-col">
