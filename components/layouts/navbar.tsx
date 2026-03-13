@@ -7,12 +7,26 @@ import { Menu, X, Search, User, Heart, LogOut, Shield, LayoutDashboard, Bell } f
 import { createClient } from '@/lib/supabase/client'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
+// This is needed for hydration - we'll use context at the component level
+let NotificationsProvider: React.FC<any> | null = null
+let useNotificationsHook: (() => any) | null = null
+
+try {
+  const notif = require('@/contexts/NotificationsContext')
+  NotificationsProvider = notif.NotificationsProvider
+  useNotificationsHook = notif.useNotifications
+} catch {
+  // Fallback if context not available
+}
+
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [messagesUnread, setMessagesUnread] = useState(0)
+  const [bookingsPending, setBookingsPending] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -24,6 +38,9 @@ export function Navbar() {
       
       if (user?.user_metadata?.role === 'admin') {
         fetchUnreadNotifications()
+      } else if (user?.email) {
+        // Fetch customer notifications
+        fetchCustomerNotifications(user.email)
       }
       
       setLoading(false)
@@ -51,6 +68,37 @@ export function Navbar() {
       }
     } catch (error) {
       console.error('Error fetching notifications:', error)
+    }
+  }
+
+  const fetchCustomerNotifications = async (email: string) => {
+    try {
+      const supabase = createClient()
+      
+      // Fetch unread messages
+      const { count: messagesCount } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('receiver_email', email)
+        .eq('sender_role', 'admin')
+        .eq('read_by_customer', false)
+
+      if (messagesCount) {
+        setMessagesUnread(messagesCount)
+      }
+
+      // Fetch pending bookings
+      const { count: pendingCount } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_email', email)
+        .eq('status', 'pending')
+
+      if (pendingCount) {
+        setBookingsPending(pendingCount)
+      }
+    } catch (error) {
+      console.error('Error fetching customer notifications:', error)
     }
   }
 
@@ -115,6 +163,28 @@ export function Navbar() {
                     {unreadNotifications > 0 && (
                       <span className="absolute top-1 right-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
                         {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                      </span>
+                    )}
+                  </Link>
+                )}
+
+                {!isAdmin && (
+                  <Link href="/dashboard/messages" className="relative p-2 hover:bg-secondary rounded-md transition-colors" title="Messages">
+                    <Mail className="w-5 h-5 text-foreground" />
+                    {messagesUnread > 0 && (
+                      <span className="absolute top-1 right-1 inline-flex items-center justify-center w-4 h-4 text-xs font-bold leading-none text-white bg-accent rounded-full">
+                        {messagesUnread > 9 ? '9+' : messagesUnread}
+                      </span>
+                    )}
+                  </Link>
+                )}
+
+                {!isAdmin && (
+                  <Link href="/dashboard/bookings" className="relative p-2 hover:bg-secondary rounded-md transition-colors" title="Bookings">
+                    <Heart className="w-5 h-5 text-foreground" />
+                    {bookingsPending > 0 && (
+                      <span className="absolute top-1 right-1 inline-flex items-center justify-center w-4 h-4 text-xs font-bold leading-none text-white bg-yellow-500 rounded-full">
+                        {bookingsPending > 9 ? '9+' : bookingsPending}
                       </span>
                     )}
                   </Link>

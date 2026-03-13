@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import { Textarea } from '@/components/ui/textarea'
 import { Badge } from '@/components/ui/badge'
 import { Loader2, Send, MessageSquare, Mail, Clock, CheckCheck, User as UserIcon, Building } from 'lucide-react'
+import { useMessages } from '@/hooks/useMessages'
+import { useNotifications } from '@/contexts/NotificationsContext'
 
 interface DbMessage {
   id: string
@@ -32,7 +34,6 @@ interface Booking {
 }
 
 export default function CustomerMessagesPage() {
-  const [messages, setMessages]       = useState<DbMessage[]>([])
   const [bookings, setBookings]       = useState<Booking[]>([])
   const [selectedBooking, setSelectedBooking] = useState<string | null>(null)
   const [newMessage, setNewMessage]   = useState('')
@@ -43,6 +44,10 @@ export default function CustomerMessagesPage() {
   const bottomRef                     = useRef<HTMLDivElement>(null)
 
   const supabase = createClient()
+  const { addNotification } = useNotifications()
+  
+  // Use real-time messages hook
+  const { messages, loading: messagesLoading, unreadCount } = useMessages(userEmail)
 
   useEffect(() => {
     checkUserAndLoad()
