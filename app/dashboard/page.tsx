@@ -28,27 +28,27 @@ export default async function DashboardPage() {
   const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Guest'
 
   // Fetch user's real bookings from database
-  const { data: bookingsData, error: bookingsError } = await supabase
+  const { data: bookingsData } = await supabase
     .from('bookings')
     .select('*')
-    .eq('user_id', user.id)
+    .eq('user_email', user.email)
     .order('created_at', { ascending: false })
-    .limit(5)
 
-  const recentBookings = bookingsData || []
-  const totalBookings = bookingsData?.length || 0
-  const totalNights = bookingsData?.reduce((sum, b) => {
-    const checkIn = new Date(b.check_in_date)
-    const checkOut = new Date(b.check_out_date)
-    return sum + Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
-  }, 0) || 0
-  const totalSpent = bookingsData?.reduce((sum, b) => sum + (parseFloat(b.total_price) || 0), 0) || 0
+  const allBookings = bookingsData || []
+  const recentBookings = allBookings.slice(0, 5)
+  
+  // Calculate stats
+  const totalBookings = allBookings.length
+  const confirmedBookings = allBookings.filter(b => b.status === 'confirmed').length
+  const pendingBookings = allBookings.filter(b => b.status === 'pending').length
+  const completedBookings = allBookings.filter(b => b.status === 'completed').length
+  const totalSpent = allBookings.reduce((sum, b) => sum + (parseFloat(b.total_price) || 0), 0)
 
   const stats = [
-    { label: 'Total Bookings', value: String(totalBookings), icon: Calendar },
-    { label: 'Total Nights', value: String(totalNights), icon: TrendingUp },
-    { label: 'Favorites', value: '0', icon: Heart },
-    { label: 'Amount Spent', value: formatPrice(totalSpent, false), icon: DollarSign },
+    { label: 'Total Bookings', value: String(totalBookings), icon: Calendar, color: 'text-blue-500' },
+    { label: 'Confirmed', value: String(confirmedBookings), icon: TrendingUp, color: 'text-green-500' },
+    { label: 'Pending', value: String(pendingBookings), icon: Heart, color: 'text-yellow-500' },
+    { label: 'Total Spent', value: formatPrice(totalSpent, false), icon: DollarSign, color: 'text-accent' },
   ]
 
   return (
@@ -75,18 +75,19 @@ export default async function DashboardPage() {
               {stats.map((stat, index) => {
                 const Icon = stat.icon
                 return (
-                  <div key={index} className="card-luxury">
+                  <div key={index} className="card-luxury hover:shadow-luxury-md transition-shadow">
                     <div className="flex items-center justify-between">
                       <div>
-                        <p className="text-muted-foreground text-sm mb-1">
+                        <p className="text-muted-foreground text-sm mb-2">
                           {stat.label}
                         </p>
                         <p className="text-3xl font-bold text-foreground">
                           {stat.value}
                         </p>
                       </div>
-                      <div className="w-12 h-12 bg-accent/10 rounded-lg flex items-center justify-center">
-                        <Icon className="w-6 h-6 text-accent" />
+                      <div className="w-14 h-14 bg-opacity-10 rounded-lg flex items-center justify-center flex-shrink-0"
+                        style={{ backgroundColor: `var(--color-${stat.color.split('-')[1]})` + '20' }}>
+                        <Icon className={`w-7 h-7 ${stat.color}`} />
                       </div>
                     </div>
                   </div>
@@ -108,80 +109,114 @@ export default async function DashboardPage() {
               </div>
 
               <div className="space-y-4">
-                {recentBookings.map((booking) => (
-                  <div
-                    key={booking.id}
-                    className="flex items-center space-x-4 p-4 border border-border rounded-lg hover:bg-secondary transition-colors"
-                  >
-                    {/* Image */}
-                    <img
-                      src={booking.image}
-                      alt={booking.property}
-                      className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
-                    />
-
-                    {/* Info */}
-                    <div className="flex-1 min-w-0">
-                      <h3 className="font-semibold text-foreground">
-                        {booking.property}
-                      </h3>
-                      <div className="flex items-center space-x-1 text-muted-foreground text-sm mb-2">
-                        <MapPin className="w-4 h-4" />
-                        <span>{booking.location}</span>
-                      </div>
-                      <div className="flex items-center space-x-3 text-sm text-muted-foreground">
-                        <span>
-                          {new Date(booking.checkIn).toLocaleDateString()} -{' '}
-                          {new Date(booking.checkOut).toLocaleDateString()}
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Status & Price */}
-                    <div className="text-right flex-shrink-0">
-                      <div className="flex items-center justify-end gap-2 mb-2">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                            booking.status === 'Confirmed'
-                              ? 'bg-accent/10 text-accent'
-                              : 'bg-yellow-100 text-yellow-800'
-                          }`}
-                        >
-                          {booking.status}
-                        </span>
-                      </div>
-                      <p className="text-lg font-bold text-foreground">
-                        {formatPrice(booking.total, false)}
-                      </p>
-                    </div>
+                {recentBookings.length === 0 ? (
+                  <div className="text-center py-12">
+                    <Calendar className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+                    <p className="text-muted-foreground mb-4">You have not made any bookings yet.</p>
+                    <a href="/properties">
+                      <button className="btn-luxury-accent text-sm">
+                        Browse Villas & Apartments
+                      </button>
+                    </a>
                   </div>
-                ))}
+                ) : (
+                  recentBookings.map((booking) => (
+                    <div
+                      key={booking.id}
+                      className="flex items-center space-x-4 p-4 border border-border rounded-lg hover:bg-secondary transition-colors group"
+                    >
+                      {/* Image */}
+                      <div className="w-20 h-20 rounded-lg object-cover flex-shrink-0 bg-muted flex items-center justify-center">
+                        <Calendar className="w-8 h-8 text-muted-foreground/50" />
+                      </div>
+
+                      {/* Info */}
+                      <div className="flex-1 min-w-0">
+                        <h3 className="font-semibold text-foreground">
+                          {booking.item_name || 'Booking'}
+                        </h3>
+                        <div className="flex items-center space-x-1 text-muted-foreground text-sm mb-2">
+                          <span className="capitalize text-xs bg-secondary px-2 py-1 rounded">
+                            {booking.item_type || 'property'}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-3 text-sm text-muted-foreground">
+                          <span>
+                            {new Date(booking.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} -{' '}
+                            {new Date(booking.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Status & Price */}
+                      <div className="text-right flex-shrink-0">
+                        <div className="flex items-center justify-end gap-2 mb-2">
+                          <span
+                            className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${
+                              booking.status === 'confirmed'
+                                ? 'bg-green-100 text-green-800'
+                                : booking.status === 'pending'
+                                  ? 'bg-yellow-100 text-yellow-800'
+                                  : booking.status === 'completed'
+                                    ? 'bg-blue-100 text-blue-800'
+                                    : 'bg-red-100 text-red-800'
+                            }`}
+                          >
+                            {booking.status}
+                          </span>
+                        </div>
+                        <p className="text-lg font-bold text-foreground">
+                          {formatPrice(parseFloat(booking.total_price) || 0)}
+                        </p>
+                      </div>
+
+                      {/* View Details Link */}
+                      <a href={`/dashboard/bookings/${booking.id}`} className="hidden group-hover:block">
+                        <button className="text-accent hover:text-accent/80 text-sm font-semibold">
+                          View →
+                        </button>
+                      </a>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
 
             {/* Account Summary */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-12">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
               <div className="card-luxury">
                 <h3 className="text-lg font-serif font-bold text-foreground mb-4">
-                  Total Spent in Rwanda
+                  Total Amount Spent
                 </h3>
                 <p className="text-3xl font-bold text-accent mb-2">
-                  {formatPrice(totalSpent, false)}
+                  {formatPrice(totalSpent)}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Across {recentBookings.length} bookings
+                  Across {allBookings.length} booking{allBookings.length !== 1 ? 's' : ''}
                 </p>
               </div>
 
               <div className="card-luxury">
                 <h3 className="text-lg font-serif font-bold text-foreground mb-4">
-                  Loyalty Status
+                  Confirmed Bookings
                 </h3>
-                <p className="text-2xl font-bold text-foreground mb-2">
-                  VIP Member
+                <p className="text-3xl font-bold text-green-500 mb-2">
+                  {confirmedBookings}
                 </p>
                 <p className="text-sm text-muted-foreground">
-                  Earn points on every booking
+                  Ready to enjoy
+                </p>
+              </div>
+
+              <div className="card-luxury">
+                <h3 className="text-lg font-serif font-bold text-foreground mb-4">
+                  Pending Approval
+                </h3>
+                <p className="text-3xl font-bold text-yellow-500 mb-2">
+                  {pendingBookings}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Awaiting confirmation
                 </p>
               </div>
             </div>

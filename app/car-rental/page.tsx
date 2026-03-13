@@ -1,3 +1,4 @@
+import Link from 'next/link'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { CarCard } from '@/components/cars/car-card'
@@ -153,9 +154,11 @@ export default async function CarRentalPage() {
             Combine our luxury accommodations with a premium vehicle to create the
             perfect travel experience
           </p>
-          <button className="btn-luxury-accent">
-            Book a Vehicle
-          </button>
+          <Link href="/car-rental">
+            <button className="btn-luxury-accent">
+              Book a Vehicle
+            </button>
+          </Link>
         </div>
       </section>
 

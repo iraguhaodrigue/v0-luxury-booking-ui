@@ -3,6 +3,7 @@ import { createClient } from '@/lib/supabase/server'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { Button } from '@/components/ui/button'
+import { ImageGallery } from '@/components/ui/image-gallery'
 import { Heart, MapPin, Users, DollarSign, Check } from 'lucide-react'
 import Link from 'next/link'
 import { formatPrice } from '@/lib/utils/currency'
@@ -70,28 +71,12 @@ export default async function PropertyDetailsPage({ params }: PropertyDetailsPag
       <Navbar />
 
       {/* Image Gallery */}
-      <section className="w-full">
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-2 h-[500px] md:h-[600px]">
-          {/* Main Image */}
-          <div className="md:col-span-2 md:row-span-2 overflow-hidden rounded-lg">
-            <img
-              src={images[0] || 'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=1200&q=80'}
-              alt={property.name}
-              className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-            />
-          </div>
-
-          {/* Thumbnail Images */}
-          {images.slice(1, 5).map((image, index) => (
-            <div key={index} className="overflow-hidden rounded-lg hidden md:block">
-              <img
-                src={image}
-                alt={`${property.name} - ${index + 2}`}
-                className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
-              />
-            </div>
-          ))}
-        </div>
+      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <ImageGallery 
+          images={images} 
+          alt={property.name}
+          mainImageHeight="h-[400px] md:h-[500px]"
+        />
       </section>
 
       {/* Property Details */}

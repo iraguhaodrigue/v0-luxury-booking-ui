@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Calendar, User, CreditCard, LogOut, Home, Menu, X } from 'lucide-react'
+import { Calendar, User, CreditCard, LogOut, Home, Menu, X, MessageSquare } from 'lucide-react'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
   { href: '/dashboard', icon: Home, label: 'Overview' },
   { href: '/dashboard/bookings', icon: Calendar, label: 'My Bookings' },
+  { href: '/dashboard/messages', icon: MessageSquare, label: 'Messages' },
   { href: '/dashboard/profile', icon: User, label: 'Profile' },
   { href: '/dashboard/payments', icon: CreditCard, label: 'Payments' },
 ]

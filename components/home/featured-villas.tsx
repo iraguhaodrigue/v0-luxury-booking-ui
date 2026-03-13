@@ -2,6 +2,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
 import { Star, MapPin } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/currency'
 import { createClient } from '@/lib/supabase/client'
@@ -16,6 +17,7 @@ interface Property {
 }
 
 export function FeaturedVillas() {
+  const router = useRouter()
   const [villas, setVillas] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -120,7 +122,20 @@ export function FeaturedVillas() {
                         ))}
                     </div>
 
-                    <button className="w-full btn-luxury-ghost text-sm mt-auto">View Details</button>
+                    <div className="flex gap-2 mt-auto pt-2">
+                      <button
+                        onClick={(e) => { e.preventDefault(); router.push(`/property/${villa.id}`) }}
+                        className="flex-1 btn-luxury-ghost text-sm"
+                      >
+                        View Details
+                      </button>
+                      <button
+                        onClick={(e) => { e.preventDefault(); router.push(`/booking?type=property&id=${villa.id}`) }}
+                        className="flex-1 bg-accent text-accent-foreground hover:bg-accent/90 px-3 py-2 rounded-lg font-semibold transition-all duration-300 text-sm"
+                      >
+                        Book Now
+                      </button>
+                    </div>
                   </div>
                 </div>
               </Link>

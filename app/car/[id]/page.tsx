@@ -15,14 +15,15 @@ interface Car {
   model: string
   year: number
   price_per_day: number
-  images: string[]
+  image_url: string | null   // primary single image from DB
+  images: string[] | null    // gallery images
   capacity: number
   transmission: string
   fuel_type: string
   status: string
   color?: string
-  features?: string
-  description?: string
+  mileage_limit?: number
+  license_plate?: string
 }
 
 export default function CarDetailPage() {
@@ -45,7 +46,7 @@ export default function CarDetailPage() {
       const supabase = createClient()
       const { data, error } = await supabase
         .from('cars')
-        .select('*')
+        .select('id,make,model,year,price_per_day,capacity,transmission,fuel_type,image_url,images,status,color,mileage_limit,license_plate')
         .eq('id', carId)
         .single()
 
@@ -68,15 +69,11 @@ export default function CarDetailPage() {
   }
 
   const handleNextImage = () => {
-    if (car && car.images && car.images.length > 0) {
-      setSelectedImageIndex((prev) => (prev + 1) % car.images.length)
-    }
+    setSelectedImageIndex((prev) => (prev + 1) % (car?.images?.length || 1))
   }
 
   const handlePrevImage = () => {
-    if (car && car.images && car.images.length > 0) {
-      setSelectedImageIndex((prev) => (prev - 1 + car.images.length) % car.images.length)
-    }
+    setSelectedImageIndex((prev) => (prev - 1 + (car?.images?.length || 1)) % (car?.images?.length || 1))
   }
 
   const handleBooking = () => {
@@ -118,7 +115,15 @@ export default function CarDetailPage() {
     )
   }
 
-  const mainImage = car.images && car.images.length > 0 ? car.images[selectedImageIndex] : 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=1200&q=80'
+  // Resolve images: prefer gallery array, fall back to image_url, then placeholder
+  const FALLBACK_IMG = 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=1200&q=80'
+  const galleryImages: string[] = (car.images && car.images.length > 0)
+    ? car.images
+    : car.image_url
+      ? [car.image_url]
+      : [FALLBACK_IMG]
+
+  const mainImage = galleryImages[selectedImageIndex] || FALLBACK_IMG
   const isAvailable = car.status === 'available'
 
   return (
@@ -151,7 +156,7 @@ export default function CarDetailPage() {
                 )}
 
                 {/* Navigation Buttons */}
-                {car.images && car.images.length > 1 && (
+                {galleryImages.length > 1 && (
                   <>
                     <button
                       onClick={handlePrevImage}
@@ -185,9 +190,9 @@ export default function CarDetailPage() {
               </div>
 
               {/* Thumbnails */}
-              {car.images && car.images.length > 1 && (
+              {galleryImages.length > 1 && (
                 <div className="grid grid-cols-4 gap-2">
-                  {car.images.map((img, idx) => (
+                  {galleryImages.map((img, idx) => (
                     <button
                       key={idx}
                       onClick={() => setSelectedImageIndex(idx)}
@@ -219,13 +224,6 @@ export default function CarDetailPage() {
                 <p className="text-xl sm:text-2xl text-muted-foreground">{car.model} ({car.year})</p>
               </div>
 
-              {/* Description */}
-              {car.description && (
-                <p className="text-base sm:text-lg text-muted-foreground leading-relaxed">
-                  {car.description}
-                </p>
-              )}
-
               {/* Specs Grid */}
               <div className="grid grid-cols-3 gap-2 sm:gap-4">
                 <div className="bg-secondary p-3 sm:p-4 rounded-lg text-center">
@@ -253,18 +251,24 @@ export default function CarDetailPage() {
                     <span className="font-semibold text-foreground">{car.color}</span>
                   </div>
                 )}
+                {car.license_plate && (
+                  <div className="flex justify-between text-sm sm:text-base">
+                    <span className="text-muted-foreground">License Plate:</span>
+                    <span className="font-semibold text-foreground">{car.license_plate}</span>
+                  </div>
+                )}
+                {car.mileage_limit && (
+                  <div className="flex justify-between text-sm sm:text-base">
+                    <span className="text-muted-foreground">Mileage Limit:</span>
+                    <span className="font-semibold text-foreground">{car.mileage_limit} km/day</span>
+                  </div>
+                )}
                 <div className="flex justify-between text-sm sm:text-base">
                   <span className="text-muted-foreground">Status:</span>
                   <span className={`font-semibold ${isAvailable ? 'text-accent' : 'text-red-500'}`}>
                     {isAvailable ? 'Available' : 'Booked'}
                   </span>
                 </div>
-                {car.features && (
-                  <div className="flex justify-between text-sm sm:text-base">
-                    <span className="text-muted-foreground">Features:</span>
-                    <span className="font-semibold text-foreground text-right">{car.features}</span>
-                  </div>
-                )}
               </div>
 
               {/* Price & Booking */}

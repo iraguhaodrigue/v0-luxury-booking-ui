@@ -2,7 +2,7 @@
 
 import { useState, Suspense, useEffect } from 'react'
 import Link from 'next/link'
-import { useSearchParams } from 'next/navigation'
+import { useSearchParams, useRouter } from 'next/navigation'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { BookingSteps } from '@/components/booking/booking-steps'
@@ -12,13 +12,32 @@ import { formatPrice } from '@/lib/utils/currency'
 import { createClient } from '@/lib/supabase/client'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
-import { Loader2, CheckCircle, CreditCard, Smartphone, Calendar, Users, User, Mail, Phone } from 'lucide-react'
+import { Loader2, CheckCircle, CreditCard, Smartphone, Calendar, Users, User, Mail, Phone, MapPin, Clock, Shield, Navigation, Baby } from 'lucide-react'
 
-const bookingSteps = [
+// Separate booking steps for each category
+const propertyBookingSteps = [
   { id: 1, title: 'Dates',    description: 'Check-in & Check-out' },
   { id: 2, title: 'Guests',   description: 'Number of guests' },
   { id: 3, title: 'Details',  description: 'Your information' },
   { id: 4, title: 'Extras',   description: 'Add-on services' },
+  { id: 5, title: 'Review',   description: 'Confirm booking' },
+  { id: 6, title: 'Payment',  description: 'Complete purchase' },
+]
+
+const carBookingSteps = [
+  { id: 1, title: 'Pickup',   description: 'Pickup location' },
+  { id: 2, title: 'Dates',    description: 'Pickup & Return dates' },
+  { id: 3, title: 'Driver',   description: 'Driver information' },
+  { id: 4, title: 'Add-ons',  description: 'Insurance, GPS, etc.' },
+  { id: 5, title: 'Review',   description: 'Confirm booking' },
+  { id: 6, title: 'Payment',  description: 'Complete purchase' },
+]
+
+const serviceBookingSteps = [
+  { id: 1, title: 'Date',     description: 'Select date' },
+  { id: 2, title: 'Time',     description: 'Select time slot' },
+  { id: 3, title: 'Guests',   description: 'Number of guests' },
+  { id: 4, title: 'Details',  description: 'Your information' },
   { id: 5, title: 'Review',   description: 'Confirm booking' },
   { id: 6, title: 'Payment',  description: 'Complete purchase' },
 ]
@@ -28,7 +47,9 @@ interface BookableItem {
   id: number
   name: string
   description?: string | null
-  
+  price_per_day?: number      // cars & services
+  image_url?: string          // cars & services primary image
+
   // Properties
   location?: string
   city?: string
@@ -37,23 +58,20 @@ interface BookableItem {
   base_price_per_night?: number
   images?: string[] | string
   amenities?: string[]
-  
+
   // Cars
   make?: string
   model?: string
   year?: number
-  capacity?: number
+  capacity?: number           // seats / max guests for cars & services
   transmission?: string
   fuel_type?: string
-  price_per_day?: number
-  image_url?: string
   license_plate?: string
   color?: string
   status?: string
   mileage_limit?: number
-  
+
   // Services
-  price_per_day?: number
   service_type?: string
   category?: string
   max_guests_per_day?: number
@@ -61,11 +79,34 @@ interface BookableItem {
 
 function BookingPageContent() {
   const searchParams = useSearchParams()
+  const router = useRouter()
   const type = (searchParams.get('type') || 'property') as 'property' | 'car' | 'service'
   const id   = searchParams.get('id')
 
+  // Get the correct steps based on booking type
+  const bookingSteps = type === 'car' 
+    ? carBookingSteps 
+    : type === 'service' 
+      ? serviceBookingSteps 
+      : propertyBookingSteps
+
   // Navigation
   const [currentStep, setCurrentStep] = useState(1)
+
+  // Car-specific fields
+  const [pickupLocation, setPickupLocation] = useState('')
+  const [returnLocation, setReturnLocation] = useState('')
+  const [driverName, setDriverName]     = useState('')
+  const [driverLicense, setDriverLicense] = useState('')
+  const [driverAge, setDriverAge]       = useState('')
+  
+  // Car add-ons
+  const [addInsurance, setAddInsurance] = useState(false)
+  const [addGPS, setAddGPS]             = useState(false)
+  const [addChildSeat, setAddChildSeat] = useState(false)
+  
+  // Service-specific fields
+  const [selectedTimeSlot, setSelectedTimeSlot] = useState('')
 
   // Item data
   const [item,    setItem]    = useState<BookableItem | null>(null)
@@ -118,9 +159,10 @@ function BookingPageContent() {
 
       if (type === 'car') {
         // Cars table: id, make, model, year, license_plate, color, capacity, transmission, fuel_type, price_per_day, images, status, mileage_limit
+        // NOTE: 'description' does NOT exist in the cars table — omit it
         query = supabase
           .from('cars')
-          .select('id,make,model,year,capacity,transmission,fuel_type,price_per_day,image_url,images,status,color,license_plate,mileage_limit,description')
+          .select('id,make,model,year,capacity,transmission,fuel_type,price_per_day,image_url,images,status,color,license_plate,mileage_limit')
           .eq('id', numericId)
       } else if (type === 'service') {
         // Services table: id, name, description, price_per_day, image_url, service_type, category, max_guests_per_day, is_active
@@ -176,16 +218,44 @@ function BookingPageContent() {
   })()
 
   const itemTotal     = baseRate * (nights || 1)
-  const extrasTotal   = selectedServices.reduce((sum, svc) => sum + (svc.price ?? 0) * (nights || 1), 0)
+  
+  // Car add-ons pricing (per day)
+  const carAddOnsTotal = type === 'car' 
+    ? ((addInsurance ? 25 : 0) + (addGPS ? 10 : 0) + (addChildSeat ? 15 : 0)) * (nights || 1)
+    : 0
+  
+  const extrasTotal   = selectedServices.reduce((sum, svc) => sum + (svc.price ?? 0) * (nights || 1), 0) + carAddOnsTotal
   const serviceFee    = Math.round((itemTotal + extrasTotal) * 0.1)
   const grandTotal    = itemTotal + extrasTotal + serviceFee
 
   // ─── Step validation ─────────────────────────────────────────────────────────
 
   const stepValid = (() => {
-    if (currentStep === 1) return !!checkIn && !!checkOut && nights > 0
-    if (currentStep === 2) return parseInt(guests) >= 1
-    if (currentStep === 3) return !!userName.trim() && !!userEmail.trim() && !!userPhone.trim()
+    if (type === 'property') {
+      // Property: Dates -> Guests -> Details -> Extras -> Review -> Payment
+      if (currentStep === 1) return !!checkIn && !!checkOut && nights > 0
+      if (currentStep === 2) return parseInt(guests) >= 1
+      if (currentStep === 3) return !!userName.trim() && !!userEmail.trim() && !!userPhone.trim()
+      return true
+    }
+    
+    if (type === 'car') {
+      // Car: Pickup -> Dates -> Driver -> Add-ons -> Review -> Payment
+      if (currentStep === 1) return !!pickupLocation.trim()
+      if (currentStep === 2) return !!checkIn && !!checkOut && nights > 0
+      if (currentStep === 3) return !!driverName.trim() && !!driverLicense.trim() && parseInt(driverAge) >= 21
+      return true
+    }
+    
+    if (type === 'service') {
+      // Service: Date -> Time -> Guests -> Details -> Review -> Payment
+      if (currentStep === 1) return !!checkIn
+      if (currentStep === 2) return !!selectedTimeSlot
+      if (currentStep === 3) return parseInt(guests) >= 1
+      if (currentStep === 4) return !!userName.trim() && !!userEmail.trim() && !!userPhone.trim()
+      return true
+    }
+    
     return true
   })()
 
@@ -220,19 +290,38 @@ function BookingPageContent() {
           item_id:        String(item?.id),
           item_type:      type,
           item_name:      item?.name ?? '',
-          user_name:      userName,
+          user_name:      type === 'car' ? driverName : userName,
           user_email:     userEmail,
           user_phone:     userPhone,
           guests:         parseInt(guests),
           checkin:        checkIn,
-          checkout:       checkOut,
+          checkout:       type === 'service' ? checkIn : checkOut, // Services are single-day
           total_price:    grandTotal,
           payment_method: paymentMethod === 'card'
             ? 'Card (Demo)'
             : `${mobileProvider.toUpperCase()} Money (Demo)`,
-          extras: selectedServices.map(svc => ({
-            id: svc.id, name: svc.name, price: svc.price,
-          })),
+          extras: type === 'car' 
+            ? {
+                add_ons: [
+                  ...(addInsurance ? [{ name: 'Insurance', price: 25 }] : []),
+                  ...(addGPS ? [{ name: 'GPS Navigation', price: 10 }] : []),
+                  ...(addChildSeat ? [{ name: 'Child Seat', price: 15 }] : []),
+                ],
+                pickup_location: pickupLocation,
+                return_location: returnLocation || pickupLocation,
+                driver_license: driverLicense,
+                driver_age: driverAge,
+              }
+            : type === 'service'
+              ? {
+                  time_slot: selectedTimeSlot,
+                  services: selectedServices.map(svc => ({
+                    id: svc.id, name: svc.name, price: svc.price,
+                  })),
+                }
+              : selectedServices.map(svc => ({
+                  id: svc.id, name: svc.name, price: svc.price,
+                })),
           status: 'pending',
         })
         .select('id')
@@ -254,11 +343,15 @@ function BookingPageContent() {
   }
 
   // ─── Image helper ─────────────────────────────────────────────────────────────
-
+  // Priority: image_url (cars/services) → images[0] (properties/cars gallery)
   const itemImage = (() => {
     if (!item) return undefined
-    if (item.images && item.images.length > 0) return item.images[0]
-    if (item.image) return item.image
+    if (item.image_url) return item.image_url
+    if (item.images) {
+      const imgs = item.images
+      if (Array.isArray(imgs) && imgs.length > 0) return imgs[0]
+      if (typeof imgs === 'string' && imgs) return imgs
+    }
     return undefined
   })()
 
@@ -374,8 +467,12 @@ function BookingPageContent() {
           {/* ── Left / form column ── */}
           <div className="lg:col-span-2 space-y-6">
 
-            {/* STEP 1 – Dates */}
-            {currentStep === 1 && (
+            {/* ═══════════════════════════════════════════════════════════════════════════
+                PROPERTY BOOKING STEPS
+            ═══════════════════════════════════════════════════════════════════════════ */}
+            
+            {/* PROPERTY STEP 1 – Dates */}
+            {type === 'property' && currentStep === 1 && (
               <div className="card-luxury space-y-6">
                 <div>
                   <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Select Dates</h2>
@@ -419,17 +516,312 @@ function BookingPageContent() {
               </div>
             )}
 
-            {/* STEP 2 – Guests */}
-            {currentStep === 2 && (
+            {/* ═══════════════════════════════════════════════════════════════════════════
+                CAR RENTAL BOOKING STEPS
+            ═══════════════════════════════════════════════════════════════════════════ */}
+            
+            {/* CAR STEP 1 – Pickup Location */}
+            {type === 'car' && currentStep === 1 && (
+              <div className="card-luxury space-y-6">
+                <div>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Pickup Location</h2>
+                  <p className="text-muted-foreground text-sm">Where would you like to pick up the vehicle?</p>
+                </div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <MapPin className="inline w-4 h-4 mr-1 text-accent" />
+                      Pickup Location <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="e.g., Kigali International Airport"
+                      value={pickupLocation}
+                      onChange={e => setPickupLocation(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <Navigation className="inline w-4 h-4 mr-1 text-accent" />
+                      Return Location (leave empty if same as pickup)
+                    </label>
+                    <Input
+                      placeholder="Same as pickup location"
+                      value={returnLocation}
+                      onChange={e => setReturnLocation(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* CAR STEP 2 – Dates */}
+            {type === 'car' && currentStep === 2 && (
+              <div className="card-luxury space-y-6">
+                <div>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Rental Period</h2>
+                  <p className="text-muted-foreground text-sm">Select pickup and return dates for your rental.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <Calendar className="inline w-4 h-4 mr-1 text-accent" />
+                      Pickup Date
+                    </label>
+                    <Input
+                      type="date"
+                      value={checkIn}
+                      min={new Date().toISOString().split('T')[0]}
+                      onChange={e => { setCheckIn(e.target.value); if (checkOut && e.target.value >= checkOut) setCheckOut('') }}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <Calendar className="inline w-4 h-4 mr-1 text-accent" />
+                      Return Date
+                    </label>
+                    <Input
+                      type="date"
+                      value={checkOut}
+                      min={checkIn || new Date().toISOString().split('T')[0]}
+                      onChange={e => setCheckOut(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+                {nights > 0 && (
+                  <div className="bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 text-sm text-foreground">
+                    <span className="font-semibold text-accent">{nights}</span> day{nights !== 1 ? 's' : ''} &nbsp;&middot;&nbsp;
+                    <span className="font-semibold">{formatPrice(baseRate)}</span>/day &nbsp;&middot;&nbsp;
+                    Subtotal: <span className="font-semibold">{formatPrice(itemTotal)}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* CAR STEP 3 – Driver Information */}
+            {type === 'car' && currentStep === 3 && (
+              <div className="card-luxury space-y-6">
+                <div>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Driver Information</h2>
+                  <p className="text-muted-foreground text-sm">Primary driver details for the rental agreement.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <User className="inline w-4 h-4 mr-1 text-accent" />
+                      Driver Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="John Doe"
+                      value={driverName}
+                      onChange={e => setDriverName(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <CreditCard className="inline w-4 h-4 mr-1 text-accent" />
+                      Driver's License Number <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="DL123456789"
+                      value={driverLicense}
+                      onChange={e => setDriverLicense(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <User className="inline w-4 h-4 mr-1 text-accent" />
+                      Driver Age <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="number"
+                      placeholder="25"
+                      min={21}
+                      value={driverAge}
+                      onChange={e => setDriverAge(e.target.value)}
+                      className="w-full"
+                    />
+                    <p className="text-xs text-muted-foreground mt-1">Minimum age: 21 years</p>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <Mail className="inline w-4 h-4 mr-1 text-accent" />
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="email"
+                      placeholder="john@example.com"
+                      value={userEmail}
+                      onChange={e => setUserEmail(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <Phone className="inline w-4 h-4 mr-1 text-accent" />
+                      Phone Number <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="tel"
+                      placeholder="+250 788 000 000"
+                      value={userPhone}
+                      onChange={e => setUserPhone(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* CAR STEP 4 – Add-ons */}
+            {type === 'car' && currentStep === 4 && (
+              <div className="card-luxury space-y-6">
+                <div>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Add-ons & Extras</h2>
+                  <p className="text-muted-foreground text-sm">Enhance your rental experience with these optional add-ons.</p>
+                </div>
+                <div className="space-y-4">
+                  <label className="flex items-center justify-between p-4 border border-border rounded-lg hover:border-accent/50 cursor-pointer transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Shield className="w-5 h-5 text-accent" />
+                      <div>
+                        <p className="font-semibold text-foreground">Full Insurance Coverage</p>
+                        <p className="text-xs text-muted-foreground">Comprehensive coverage for peace of mind</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-accent font-semibold">$25/day</span>
+                      <input
+                        type="checkbox"
+                        checked={addInsurance}
+                        onChange={e => setAddInsurance(e.target.checked)}
+                        className="w-5 h-5 accent-accent"
+                      />
+                    </div>
+                  </label>
+                  
+                  <label className="flex items-center justify-between p-4 border border-border rounded-lg hover:border-accent/50 cursor-pointer transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Navigation className="w-5 h-5 text-accent" />
+                      <div>
+                        <p className="font-semibold text-foreground">GPS Navigation</p>
+                        <p className="text-xs text-muted-foreground">Built-in navigation system</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-accent font-semibold">$10/day</span>
+                      <input
+                        type="checkbox"
+                        checked={addGPS}
+                        onChange={e => setAddGPS(e.target.checked)}
+                        className="w-5 h-5 accent-accent"
+                      />
+                    </div>
+                  </label>
+                  
+                  <label className="flex items-center justify-between p-4 border border-border rounded-lg hover:border-accent/50 cursor-pointer transition-colors">
+                    <div className="flex items-center gap-3">
+                      <Baby className="w-5 h-5 text-accent" />
+                      <div>
+                        <p className="font-semibold text-foreground">Child Safety Seat</p>
+                        <p className="text-xs text-muted-foreground">Certified child car seat</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <span className="text-accent font-semibold">$15/day</span>
+                      <input
+                        type="checkbox"
+                        checked={addChildSeat}
+                        onChange={e => setAddChildSeat(e.target.checked)}
+                        className="w-5 h-5 accent-accent"
+                      />
+                    </div>
+                  </label>
+                </div>
+                
+                {carAddOnsTotal > 0 && (
+                  <div className="bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 text-sm text-foreground">
+                    Add-ons total: <span className="font-semibold text-accent">{formatPrice(carAddOnsTotal)}</span> for {nights} day{nights !== 1 ? 's' : ''}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* ═══════════════════════════════════════════════════════════════════════════
+                SERVICE BOOKING STEPS
+            ═══════════════════════════════════════════════════════════════════════════ */}
+            
+            {/* SERVICE STEP 1 – Select Date */}
+            {type === 'service' && currentStep === 1 && (
+              <div className="card-luxury space-y-6">
+                <div>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Select Date</h2>
+                  <p className="text-muted-foreground text-sm">Choose when you'd like to book this service.</p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    <Calendar className="inline w-4 h-4 mr-1 text-accent" />
+                    Service Date <span className="text-red-500">*</span>
+                  </label>
+                  <Input
+                    type="date"
+                    value={checkIn}
+                    min={new Date().toISOString().split('T')[0]}
+                    onChange={e => setCheckIn(e.target.value)}
+                    className="w-full max-w-xs"
+                  />
+                </div>
+                {checkIn && (
+                  <div className="bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 text-sm text-foreground">
+                    Selected: <span className="font-semibold text-accent">{new Date(checkIn).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* SERVICE STEP 2 – Select Time Slot */}
+            {type === 'service' && currentStep === 2 && (
+              <div className="card-luxury space-y-6">
+                <div>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Select Time Slot</h2>
+                  <p className="text-muted-foreground text-sm">Choose a convenient time for your service.</p>
+                </div>
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                  {['09:00 AM', '10:00 AM', '11:00 AM', '12:00 PM', '01:00 PM', '02:00 PM', '03:00 PM', '04:00 PM', '05:00 PM'].map(slot => (
+                    <button
+                      key={slot}
+                      onClick={() => setSelectedTimeSlot(slot)}
+                      className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                        selectedTimeSlot === slot
+                          ? 'border-accent bg-accent/10 text-accent'
+                          : 'border-border bg-secondary text-foreground hover:border-accent/40'
+                      }`}
+                    >
+                      <Clock className="w-4 h-4" />
+                      <span className="font-semibold text-sm">{slot}</span>
+                    </button>
+                  ))}
+                </div>
+                {selectedTimeSlot && (
+                  <div className="bg-accent/10 border border-accent/30 rounded-lg px-4 py-3 text-sm text-foreground">
+                    Selected time: <span className="font-semibold text-accent">{selectedTimeSlot}</span>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {/* SERVICE STEP 3 – Number of Guests */}
+            {type === 'service' && currentStep === 3 && (
               <div className="card-luxury space-y-6">
                 <div>
                   <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Number of Guests</h2>
                   <p className="text-muted-foreground text-sm">
-                    {type === 'property'
-                      ? `This property accommodates up to ${item?.capacity ?? '??'} guests.`
-                      : type === 'car'
-                      ? `This vehicle seats up to ${item?.seats ?? item?.capacity ?? '??'} passengers.`
-                      : 'How many guests will be attending?'}
+                    This service accommodates up to {item?.max_guests_per_day ?? item?.capacity ?? '??'} guests.
                   </p>
                 </div>
                 <div>
@@ -440,7 +832,7 @@ function BookingPageContent() {
                   <Input
                     type="number"
                     min={1}
-                    max={type === 'property' ? (item?.capacity ?? 20) : (item?.seats ?? item?.capacity ?? 10)}
+                    max={item?.max_guests_per_day ?? item?.capacity ?? 10}
                     value={guests}
                     onChange={e => setGuests(e.target.value)}
                     className="w-32"
@@ -448,9 +840,9 @@ function BookingPageContent() {
                 </div>
               </div>
             )}
-
-            {/* STEP 3 – Customer details */}
-            {currentStep === 3 && (
+            
+            {/* SERVICE STEP 4 – Customer Details */}
+            {type === 'service' && currentStep === 4 && (
               <div className="card-luxury space-y-6">
                 <div>
                   <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Your Details</h2>
@@ -499,22 +891,102 @@ function BookingPageContent() {
               </div>
             )}
 
-            {/* STEP 4 – Extras */}
-            {currentStep === 4 && (
+            {/* PROPERTY STEP 2 – Guests */}
+            {type === 'property' && currentStep === 2 && (
+              <div className="card-luxury space-y-6">
+                <div>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Number of Guests</h2>
+                  <p className="text-muted-foreground text-sm">
+                    This property has {item?.total_rooms ?? '??'} rooms available.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-foreground mb-2">
+                    <Users className="inline w-4 h-4 mr-1 text-accent" />
+                    Guests
+                  </label>
+                  <Input
+                    type="number"
+                    min={1}
+                    max={item?.total_rooms ?? 20}
+                    value={guests}
+                    onChange={e => setGuests(e.target.value)}
+                    className="w-32"
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* PROPERTY STEP 3 – Customer details */}
+            {type === 'property' && currentStep === 3 && (
+              <div className="card-luxury space-y-6">
+                <div>
+                  <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Your Details</h2>
+                  <p className="text-muted-foreground text-sm">We'll use this information for your booking confirmation.</p>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+                  <div className="sm:col-span-2">
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <User className="inline w-4 h-4 mr-1 text-accent" />
+                      Full Name <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      placeholder="Jane Doe"
+                      value={userName}
+                      onChange={e => setUserName(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <Mail className="inline w-4 h-4 mr-1 text-accent" />
+                      Email Address <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="email"
+                      placeholder="jane@example.com"
+                      value={userEmail}
+                      onChange={e => setUserEmail(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-foreground mb-2">
+                      <Phone className="inline w-4 h-4 mr-1 text-accent" />
+                      Phone Number <span className="text-red-500">*</span>
+                    </label>
+                    <Input
+                      type="tel"
+                      placeholder="+250 788 000 000"
+                      value={userPhone}
+                      onChange={e => setUserPhone(e.target.value)}
+                      className="w-full"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* PROPERTY STEP 4 – Extras */}
+            {type === 'property' && currentStep === 4 && (
               <div className="card-luxury space-y-6">
                 <div>
                   <h2 className="text-2xl font-serif font-bold text-foreground mb-1">Add-on Services</h2>
                   <p className="text-muted-foreground text-sm">Enhance your stay with optional services.</p>
                 </div>
                 <ServicesSelector
-                  selectedServices={selectedServices}
+                  selectedServices={selectedServices.map(s => s.id)}
                   onServicesChange={setSelectedServices}
                   nights={nights || 1}
                 />
               </div>
             )}
 
-            {/* STEP 5 – Review */}
+            {/* ═══════════════════════════════════════════════════════════════════════════
+                SHARED STEPS (Review & Payment)
+            ═══════════════════════════════════════════════════════════════════════════ */}
+            
+            {/* STEP 5 – Review (all types) */}
             {currentStep === 5 && (
               <div className="card-luxury space-y-6">
                 <div>
@@ -522,39 +994,98 @@ function BookingPageContent() {
                   <p className="text-muted-foreground text-sm">Please confirm all details before proceeding to payment.</p>
                 </div>
 
-                {/* Guest info */}
+                {/* Contact/Driver info */}
                 <div className="bg-secondary rounded-lg p-5 space-y-3">
-                  <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide">Guest Information</h3>
+                  <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide">
+                    {type === 'car' ? 'Driver Information' : 'Guest Information'}
+                  </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    {[
-                      { label: 'Name',     value: userName },
-                      { label: 'Email',    value: userEmail },
-                      { label: 'Phone',    value: userPhone },
-                      { label: 'Guests',   value: `${guests} guest${parseInt(guests) !== 1 ? 's' : ''}` },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="flex justify-between">
-                        <span className="text-muted-foreground">{label}</span>
-                        <span className="font-semibold text-foreground">{value}</span>
-                      </div>
-                    ))}
+                    {type === 'car' ? (
+                      <>
+                        {[
+                          { label: 'Driver',   value: driverName },
+                          { label: 'License',  value: driverLicense },
+                          { label: 'Age',      value: `${driverAge} years` },
+                          { label: 'Email',    value: userEmail },
+                          { label: 'Phone',    value: userPhone },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="flex justify-between">
+                            <span className="text-muted-foreground">{label}</span>
+                            <span className="font-semibold text-foreground">{value}</span>
+                          </div>
+                        ))}
+                      </>
+                    ) : (
+                      <>
+                        {[
+                          { label: 'Name',     value: userName },
+                          { label: 'Email',    value: userEmail },
+                          { label: 'Phone',    value: userPhone },
+                          { label: 'Guests',   value: `${guests} guest${parseInt(guests) !== 1 ? 's' : ''}` },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="flex justify-between">
+                            <span className="text-muted-foreground">{label}</span>
+                            <span className="font-semibold text-foreground">{value}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
 
-                {/* Stay info */}
+                {/* Booking details - varies by type */}
                 <div className="bg-secondary rounded-lg p-5 space-y-3">
-                  <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide">Stay Details</h3>
+                  <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide">
+                    {type === 'property' ? 'Stay Details' : type === 'car' ? 'Rental Details' : 'Service Details'}
+                  </h3>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
-                    {[
-                      { label: 'Property',  value: item!.name },
-                      { label: 'Check-in',  value: checkIn },
-                      { label: 'Check-out', value: checkOut },
-                      { label: 'Nights',    value: `${nights}` },
-                    ].map(({ label, value }) => (
-                      <div key={label} className="flex justify-between">
-                        <span className="text-muted-foreground">{label}</span>
-                        <span className="font-semibold text-foreground">{value}</span>
-                      </div>
-                    ))}
+                    {type === 'property' && (
+                      <>
+                        {[
+                          { label: 'Property',  value: item!.name },
+                          { label: 'Check-in',  value: checkIn },
+                          { label: 'Check-out', value: checkOut },
+                          { label: 'Nights',    value: `${nights}` },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="flex justify-between">
+                            <span className="text-muted-foreground">{label}</span>
+                            <span className="font-semibold text-foreground">{value}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {type === 'car' && (
+                      <>
+                        {[
+                          { label: 'Vehicle',         value: item!.name },
+                          { label: 'Pickup',          value: pickupLocation },
+                          { label: 'Return',          value: returnLocation || pickupLocation },
+                          { label: 'Pickup Date',     value: checkIn },
+                          { label: 'Return Date',     value: checkOut },
+                          { label: 'Days',            value: `${nights}` },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="flex justify-between">
+                            <span className="text-muted-foreground">{label}</span>
+                            <span className="font-semibold text-foreground">{value}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
+                    {type === 'service' && (
+                      <>
+                        {[
+                          { label: 'Service',   value: item!.name },
+                          { label: 'Date',      value: checkIn },
+                          { label: 'Time',      value: selectedTimeSlot },
+                          { label: 'Guests',    value: `${guests}` },
+                        ].map(({ label, value }) => (
+                          <div key={label} className="flex justify-between">
+                            <span className="text-muted-foreground">{label}</span>
+                            <span className="font-semibold text-foreground">{value}</span>
+                          </div>
+                        ))}
+                      </>
+                    )}
                   </div>
                 </div>
 
@@ -563,10 +1094,20 @@ function BookingPageContent() {
                   <h3 className="font-semibold text-foreground text-sm uppercase tracking-wide">Price Breakdown</h3>
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between">
-                      <span className="text-muted-foreground">{item!.name} ({nights} night{nights !== 1 ? 's' : ''})</span>
+                      <span className="text-muted-foreground">
+                        {item!.name} ({type === 'service' ? '1 session' : `${nights} ${type === 'car' ? 'day' : 'night'}${nights !== 1 ? 's' : ''}`})
+                      </span>
                       <span className="font-semibold text-foreground">{formatPrice(itemTotal)}</span>
                     </div>
-                    {extrasTotal > 0 && (
+                    {type === 'car' && carAddOnsTotal > 0 && (
+                      <div className="flex justify-between">
+                        <span className="text-muted-foreground">
+                          Add-ons ({[addInsurance && 'Insurance', addGPS && 'GPS', addChildSeat && 'Child Seat'].filter(Boolean).join(', ')})
+                        </span>
+                        <span className="font-semibold text-foreground">{formatPrice(carAddOnsTotal)}</span>
+                      </div>
+                    )}
+                    {type !== 'car' && extrasTotal > 0 && (
                       <div className="flex justify-between">
                         <span className="text-muted-foreground">Add-on services</span>
                         <span className="font-semibold text-foreground">{formatPrice(extrasTotal)}</span>
@@ -584,7 +1125,11 @@ function BookingPageContent() {
                 </div>
 
                 <p className="text-xs text-muted-foreground">
-                  Free cancellation up to 48 hours before check-in.
+                  {type === 'car' 
+                    ? 'Free cancellation up to 24 hours before pickup.'
+                    : type === 'service'
+                      ? 'Free cancellation up to 24 hours before the service.'
+                      : 'Free cancellation up to 48 hours before check-in.'}
                 </p>
               </div>
             )}
@@ -705,9 +1250,9 @@ function BookingPageContent() {
                   Back
                 </Button>
               ) : (
-                <Link href={type === 'car' ? '/car-rental' : type === 'service' ? '/services' : '/properties'}>
-                  <Button variant="outline">Cancel</Button>
-                </Link>
+                <Button variant="outline" onClick={() => router.back()}>
+                  Cancel
+                </Button>
               )}
 
               {currentStep < bookingSteps.length ? (

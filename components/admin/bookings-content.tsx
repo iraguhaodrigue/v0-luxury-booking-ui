@@ -7,8 +7,9 @@ import { Textarea } from '@/components/ui/textarea'
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
 } from '@/components/ui/dialog'
-import { Loader2, CheckCircle, XCircle, MessageSquare } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, MessageSquare, Send } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/currency'
+import { Input } from '@/components/ui/input'
 
 interface Booking {
   id: string
@@ -46,6 +47,8 @@ export default function BookingsContent() {
   const [filter,      setFilter]     = useState<string>('all')
   const [selected,    setSelected]   = useState<Booking | null>(null)
   const [comment,     setComment]    = useState('')
+  const [confirmationMsg, setConfirmationMsg] = useState('')
+  const [sendMessage, setSendMessage] = useState(true)
   const [saving,      setSaving]     = useState(false)
   const [dialogOpen,  setDialogOpen] = useState(false)
 
@@ -72,6 +75,10 @@ export default function BookingsContent() {
   const openDetail = (b: Booking) => {
     setSelected(b)
     setComment(b.admin_comment ?? '')
+    // Set default confirmation message based on item type
+    const itemType = b.item_type === 'car' ? 'car rental' : b.item_type === 'service' ? 'service' : 'booking'
+    setConfirmationMsg(`Your ${itemType} for ${b.item_name || 'your selected item'} has been confirmed. We look forward to serving you!`)
+    setSendMessage(true)
     setDialogOpen(true)
   }
 
@@ -94,6 +101,26 @@ export default function BookingsContent() {
       const updated = data as Booking
       setSelected(updated)
       setBookings(prev => prev.map(b => b.id === updated.id ? updated : b))
+      
+      // Send confirmation/rejection message to customer
+      if (sendMessage && confirmationMsg.trim()) {
+        const messageText = status === 'confirmed' 
+          ? confirmationMsg.trim()
+          : status === 'cancelled'
+            ? `We're sorry, but your booking for ${selected.item_name || 'your selected item'} could not be confirmed. ${confirmationMsg.trim() ? `Reason: ${confirmationMsg.trim()}` : 'Please contact us for more information.'}`
+            : confirmationMsg.trim()
+        
+        await supabase.from('messages').insert({
+          name: 'Support Team',
+          sender_email: selected.user_email,
+          message: messageText,
+          sender_role: 'admin',
+          read_by_admin: true,
+          read_by_customer: false,
+          booking_id: selected.id,
+        })
+      }
+      
       setDialogOpen(false)
     }
     setSaving(false)
@@ -261,15 +288,48 @@ export default function BookingsContent() {
               <div>
                 <label className="block text-sm font-medium text-foreground mb-2">
                   <MessageSquare className="inline w-4 h-4 mr-1 text-accent" />
-                  Admin Note
+                  Admin Note (internal)
                 </label>
                 <Textarea
-                  placeholder="Optional note for this booking…"
+                  placeholder="Optional internal note for this booking…"
                   value={comment}
                   onChange={e => setComment(e.target.value)}
-                  rows={3}
+                  rows={2}
                 />
               </div>
+              
+              {/* Confirmation message to customer */}
+              {selected?.status === 'pending' && (
+                <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <Send className="w-4 h-4 text-accent" />
+                      Send Message to Customer
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={sendMessage}
+                        onChange={e => setSendMessage(e.target.checked)}
+                        className="w-4 h-4 accent-accent"
+                      />
+                      <span className="text-muted-foreground">Enabled</span>
+                    </label>
+                  </div>
+                  {sendMessage && (
+                    <Textarea
+                      placeholder="Message to send to customer on confirmation..."
+                      value={confirmationMsg}
+                      onChange={e => setConfirmationMsg(e.target.value)}
+                      rows={3}
+                      className="text-sm"
+                    />
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    This message will be sent to the customer when you confirm or reject the booking.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
