@@ -30,7 +30,8 @@ export function DashboardSidebar() {
     <>
       {/* Mobile Menu Button */}
       <div className="md:hidden sticky top-20 z-40 bg-background border-b border-border px-4 py-3 flex justify-between items-center">
-        <h2 className="font-serif font-bold text-foreground">Dashboard</h2>
+        {/* Icon only on mobile to save space */}
+        <Home className="w-5 h-5 text-accent" aria-label="Dashboard" />
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="p-2 hover:bg-secondary rounded-md transition-colors"
