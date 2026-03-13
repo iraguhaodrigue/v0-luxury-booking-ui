@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Menu, X, Search, User, Heart, LogOut, Shield, LayoutDashboard, Bell } from 'lucide-react'
+import { Menu, X, Search, User, Heart, LogOut, Shield, LayoutDashboard, Bell, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
 
