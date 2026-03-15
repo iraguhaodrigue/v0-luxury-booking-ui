@@ -27,6 +27,8 @@ interface Booking {
   guests?: number
   extras?: any
   admin_comment?: string
+  room_name?: string | null
+  booking_subtype?: 'full_property' | 'room' | null
 }
 
 export default async function BookingDetailsPage({
@@ -41,13 +43,24 @@ export default async function BookingDetailsPage({
     redirect('/auth/login')
   }
 
-  // Fetch booking
-  const { data: booking } = await supabase
+  // Fetch booking — match on id + ownership (auth_user_id OR user_email)
+  const { data: byUid } = await supabase
     .from('bookings')
     .select('*')
     .eq('id', params.id)
-    .eq('user_email', user.email)
-    .single()
+    .eq('auth_user_id', user.id)
+    .maybeSingle()
+
+  const { data: byEmail } = !byUid
+    ? await supabase
+        .from('bookings')
+        .select('*')
+        .eq('id', params.id)
+        .eq('user_email', user.email!)
+        .maybeSingle()
+    : { data: null }
+
+  const booking = byUid ?? byEmail
 
   if (!booking) {
     notFound()
@@ -113,7 +126,9 @@ export default async function BookingDetailsPage({
                     {b.item_name}
                   </h1>
                   <p className="text-muted-foreground capitalize">
-                    {b.item_type} • Booking ID: {b.id.slice(0, 8).toUpperCase()}
+                    {b.item_type}
+                    {b.booking_subtype === 'room' && b.room_name ? ` — Room: ${b.room_name}` : b.booking_subtype === 'full_property' ? ' — Entire Property' : ''}
+                    {' • '}Booking ID: {b.id.slice(0, 8).toUpperCase()}
                   </p>
                 </div>
                 <div className="flex flex-col items-end gap-2">

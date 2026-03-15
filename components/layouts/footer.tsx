@@ -11,10 +11,10 @@ export function Footer() {
           {/* Brand */}
           <div className="space-y-4">
             <h3 className="text-2xl font-serif font-bold">
-              Luxury<span className="text-accent">Stays</span>
+              KILU<span className="text-accent">VA</span>
             </h3>
             <p className="text-sm text-primary-foreground/70">
-              Discover your perfect luxury retreat with our curated collection of premium properties worldwide.
+              Discover your perfect retreat with our curated collection of premium villas, apartments, cars and services in Rwanda.
             </p>
           </div>
 
@@ -82,7 +82,7 @@ export function Footer() {
               </div>
               <div className="flex items-start space-x-2">
                 <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>contact@luxurystays.com</span>
+                <span>contact@kiluva.com</span>
               </div>
               <div className="flex items-start space-x-2">
                 <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -117,7 +117,7 @@ export function Footer() {
         {/* Divider */}
         <div className="border-t border-primary-foreground/10 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center text-sm text-primary-foreground/70">
-            <p>&copy; {currentYear} Luxury Stays. All rights reserved.</p>
+            <p>&copy; {currentYear} KILUVA. All rights reserved.</p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <Link href="/terms" className="hover:text-accent transition-colors">
                 Terms

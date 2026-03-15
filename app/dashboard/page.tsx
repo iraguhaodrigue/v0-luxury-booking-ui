@@ -7,8 +7,8 @@ import { formatPrice } from '@/lib/utils/currency'
 import { Calendar, MapPin, DollarSign, Star, Heart, TrendingUp } from 'lucide-react'
 
 export const metadata = {
-  title: 'Dashboard | Rwanda Luxury Hospitality',
-  description: 'Manage your Rwanda luxury accommodation bookings and account',
+  title: 'Dashboard | KILUVA',
+  description: 'Manage your KILUVA bookings and account',
 }
 
 export default async function DashboardPage() {
@@ -27,14 +27,23 @@ export default async function DashboardPage() {
 
   const userName = user.user_metadata?.full_name || user.email?.split('@')[0] || 'Guest'
 
-  // Fetch user's real bookings from database
-  const { data: bookingsData } = await supabase
+  // Fetch bookings: try auth_user_id first, union with user_email to catch legacy rows
+  const { data: byUid } = await supabase
+    .from('bookings')
+    .select('*')
+    .eq('auth_user_id', user.id)
+    .order('created_at', { ascending: false })
+
+  const { data: byEmail } = await supabase
     .from('bookings')
     .select('*')
     .eq('user_email', user.email)
+    .is('auth_user_id', null)          // avoid duplicates with rows already matched above
     .order('created_at', { ascending: false })
 
-  const allBookings = bookingsData || []
+  const allBookings = [...(byUid || []), ...(byEmail || [])]
+    .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+
   const recentBookings = allBookings.slice(0, 5)
   
   // Calculate stats

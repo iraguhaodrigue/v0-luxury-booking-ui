@@ -80,8 +80,11 @@ interface BookableItem {
 function BookingPageContent() {
   const searchParams = useSearchParams()
   const router = useRouter()
-  const type = (searchParams.get('type') || 'property') as 'property' | 'car' | 'service'
-  const id   = searchParams.get('id')
+  const type    = (searchParams.get('type') || 'property') as 'property' | 'car' | 'service'
+  const id      = searchParams.get('id')
+  const roomId  = searchParams.get('room_id')   // set when booking an individual room
+  const roomNameParam = searchParams.get('room_name') ? decodeURIComponent(searchParams.get('room_name')!) : null
+  const subtype = (searchParams.get('subtype') || 'full_property') as 'full_property' | 'room'
 
   // Get the correct steps based on booking type
   const bookingSteps = type === 'car' 
@@ -142,6 +145,19 @@ function BookingPageContent() {
   useEffect(() => {
     if (id) fetchItem()
   }, [id, type])
+
+  // Pre-fill guest details from auth session
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      if (user) {
+        if (user.email)                              setUserEmail(user.email)
+        if (user.user_metadata?.full_name)           setUserName(user.user_metadata.full_name)
+        if (user.user_metadata?.phone)               setUserPhone(user.user_metadata.phone)
+        if (user.user_metadata?.full_name && !driverName) setDriverName(user.user_metadata.full_name)
+      }
+    })
+  }, [])
 
   const fetchItem = async () => {
     setLoading(true)
@@ -284,6 +300,13 @@ function BookingPageContent() {
       await new Promise(r => setTimeout(r, 1800))
 
       const supabase = createClient()
+
+      // Get the authenticated user so we can store auth_user_id
+      const { data: { user } } = await supabase.auth.getUser()
+
+      // Build the resolved email: prefer auth email, else form field
+      const resolvedEmail = user?.email || userEmail
+
       const { data, error: dbError } = await supabase
         .from('bookings')
         .insert({
@@ -291,38 +314,39 @@ function BookingPageContent() {
           item_type:      type,
           item_name:      item?.name ?? '',
           user_name:      type === 'car' ? driverName : userName,
-          user_email:     userEmail,
+          user_email:     resolvedEmail,
           user_phone:     userPhone,
           guests:         parseInt(guests),
           checkin:        checkIn,
-          checkout:       type === 'service' ? checkIn : checkOut, // Services are single-day
+          checkout:       type === 'service' ? checkIn : checkOut,
           total_price:    grandTotal,
           payment_method: paymentMethod === 'card'
             ? 'Card (Demo)'
             : `${mobileProvider.toUpperCase()} Money (Demo)`,
-          extras: type === 'car' 
+          extras: type === 'car'
             ? {
                 add_ons: [
-                  ...(addInsurance ? [{ name: 'Insurance', price: 25 }] : []),
-                  ...(addGPS ? [{ name: 'GPS Navigation', price: 10 }] : []),
-                  ...(addChildSeat ? [{ name: 'Child Seat', price: 15 }] : []),
+                  ...(addInsurance ? [{ name: 'Insurance',       price: 25 }] : []),
+                  ...(addGPS       ? [{ name: 'GPS Navigation',  price: 10 }] : []),
+                  ...(addChildSeat ? [{ name: 'Child Seat',      price: 15 }] : []),
                 ],
                 pickup_location: pickupLocation,
                 return_location: returnLocation || pickupLocation,
-                driver_license: driverLicense,
-                driver_age: driverAge,
+                driver_license:  driverLicense,
+                driver_age:      driverAge,
               }
             : type === 'service'
               ? {
                   time_slot: selectedTimeSlot,
-                  services: selectedServices.map(svc => ({
-                    id: svc.id, name: svc.name, price: svc.price,
-                  })),
+                  services:  selectedServices.map(svc => ({ id: svc.id, name: svc.name, price: svc.price })),
                 }
-              : selectedServices.map(svc => ({
-                  id: svc.id, name: svc.name, price: svc.price,
-                })),
-          status: 'pending',
+              : selectedServices.map(svc => ({ id: svc.id, name: svc.name, price: svc.price })),
+          status:           'pending',
+          // ── New columns from migration ──
+          auth_user_id:     user?.id ?? null,
+          booking_subtype:  subtype,
+          room_id:          roomId ? parseInt(roomId, 10) : null,
+          room_name:        subtype === 'room' ? roomNameParam : null,
         })
         .select('id')
         .single()
