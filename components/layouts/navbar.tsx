@@ -74,29 +74,24 @@ export function Navbar() {
   const fetchCustomerNotifications = async (email: string) => {
     try {
       const supabase = createClient()
-      
-      // Fetch unread messages
+
+      // Unread messages sent to this customer (read_by_customer is false or null)
       const { count: messagesCount } = await supabase
         .from('messages')
         .select('*', { count: 'exact', head: true })
-        .eq('receiver_email', email)
-        .eq('sender_role', 'admin')
+        .eq('user_email', email)
         .eq('read_by_customer', false)
 
-      if (messagesCount) {
-        setMessagesUnread(messagesCount)
-      }
+      setMessagesUnread(messagesCount ?? 0)
 
-      // Fetch pending bookings
+      // Pending bookings (awaiting admin decision)
       const { count: pendingCount } = await supabase
         .from('bookings')
         .select('*', { count: 'exact', head: true })
         .eq('user_email', email)
         .eq('status', 'pending')
 
-      if (pendingCount) {
-        setBookingsPending(pendingCount)
-      }
+      setBookingsPending(pendingCount ?? 0)
     } catch (error) {
       console.error('Error fetching customer notifications:', error)
     }
@@ -128,7 +123,7 @@ export function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex-shrink-0">
             <h1 className="text-2xl font-serif font-bold text-primary">
-              Luxury<span className="text-accent">Stays</span>
+              KILU<span className="text-accent">VA</span>
             </h1>
           </Link>
 

@@ -46,8 +46,8 @@ export default function BookingsPage() {
     getUser()
   }, [supabase, router])
 
-  // Use real-time bookings hook
-  const { bookings, loading, error } = useBookings(user?.email || null)
+  // Use real-time bookings hook — pass both uid and email for full coverage
+  const { bookings, loading, error } = useBookings(user?.id || null, user?.email || null)
 
   // Calculate stats
   const filteredBookings = filter === 'all' 
