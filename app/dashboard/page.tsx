@@ -144,10 +144,18 @@ export default async function DashboardPage() {
                         <h3 className="font-semibold text-foreground">
                           {booking.item_name || 'Booking'}
                         </h3>
-                        <div className="flex items-center space-x-1 text-muted-foreground text-sm mb-2">
-                          <span className="capitalize text-xs bg-secondary px-2 py-1 rounded">
+                        <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">
+                          <span className="capitalize text-xs bg-secondary px-2 py-0.5 rounded">
                             {booking.item_type || 'property'}
                           </span>
+                          {booking.booking_subtype === 'room' && booking.room_name && (
+                            <span className="text-xs text-accent font-semibold">
+                              Room: {booking.room_name}
+                            </span>
+                          )}
+                          {booking.booking_subtype === 'full_property' && (
+                            <span className="text-xs text-muted-foreground">Entire Property</span>
+                          )}
                         </div>
                         <div className="flex items-center space-x-3 text-sm text-muted-foreground">
                           <span>

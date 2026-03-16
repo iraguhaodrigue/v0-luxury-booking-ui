@@ -472,7 +472,10 @@ function BookingPageContent() {
             Complete Your Booking
           </h1>
           <p className="text-muted-foreground mt-1">
-            {item?.name} &mdash; {nights > 0 ? `${nights} night${nights !== 1 ? 's' : ''}` : 'Select dates below'}
+            {subtype === 'room' && roomNameParam
+              ? `${item?.name} — Room: ${roomNameParam}`
+              : item?.name}
+            {nights > 0 ? ` — ${nights} night${nights !== 1 ? 's' : ''}` : ''}
           </p>
         </div>
       </div>
@@ -542,7 +545,7 @@ function BookingPageContent() {
 
             {/* ═══════════════════════════════════════════════════════════════════════════
                 CAR RENTAL BOOKING STEPS
-            ═══════════════════════════════════════════════════════════════════════════ */}
+            ════════════════════════════════════════════════════════════════════════���══ */}
             
             {/* CAR STEP 1 – Pickup Location */}
             {type === 'car' && currentStep === 1 && (
@@ -1312,6 +1315,8 @@ function BookingPageContent() {
                 pricePerNight: baseRate,
                 image:         itemImage,
               } : undefined}
+              roomName={roomNameParam}
+              subtype={subtype}
               checkIn={checkIn}
               checkOut={checkOut}
               guests={guests}

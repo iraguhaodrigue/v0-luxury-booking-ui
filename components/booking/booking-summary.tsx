@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { formatPrice } from '@/lib/utils/currency'
-import { MapPin, Calendar, Users, DollarSign, Home } from 'lucide-react'
+import { MapPin, Calendar, Users, DollarSign, Home, BedDouble } from 'lucide-react'
 
 interface BookingSummaryProps {
   property?: {
@@ -11,6 +11,8 @@ interface BookingSummaryProps {
     pricePerNight: number
     image?: string
   }
+  roomName?: string | null
+  subtype?: 'full_property' | 'room' | null
   checkIn?: string
   checkOut?: string
   guests?: string
@@ -22,6 +24,8 @@ interface BookingSummaryProps {
 
 export function BookingSummary({
   property,
+  roomName,
+  subtype,
   checkIn,
   checkOut,
   guests,
@@ -46,9 +50,19 @@ export function BookingSummary({
               className="w-full h-40 object-cover rounded-lg mb-4"
             />
           )}
-          <h3 className="font-serif font-bold text-foreground text-lg mb-2">
+          <h3 className="font-serif font-bold text-foreground text-lg mb-1">
             {property.name}
           </h3>
+          {subtype === 'room' && roomName ? (
+            <div className="flex items-center gap-1.5 text-accent text-sm font-semibold mb-2">
+              <BedDouble className="w-4 h-4" />
+              <span>{roomName}</span>
+            </div>
+          ) : subtype === 'full_property' ? (
+            <p className="text-xs text-muted-foreground mb-2 font-medium uppercase tracking-wide">
+              Entire Property
+            </p>
+          ) : null}
           <div className="flex items-center space-x-1 text-muted-foreground text-sm">
             <MapPin className="w-4 h-4" />
             <span>{property.location}, Rwanda</span>
