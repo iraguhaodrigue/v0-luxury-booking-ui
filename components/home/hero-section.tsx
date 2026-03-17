@@ -42,7 +42,7 @@ export function HeroSection() {
             Experience Luxury Living in Rwanda
           </h1>
           <p className="text-lg md:text-2xl text-white/90 font-light max-w-2xl mx-auto">
-            Book exquisite villas, premium hotel rooms, and curated services in Rwanda's most beautiful destinations
+            Book exquisite villas,premier apartment and curated services in Rwanda's most beautiful destinations
           </p>
         </div>
 
