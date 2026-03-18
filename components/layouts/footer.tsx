@@ -10,9 +10,15 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           {/* Brand */}
           <div className="space-y-4">
-            <h3 className="text-2xl font-serif font-bold">
-              KILU<span className="text-accent">VA</span>
-            </h3>
+            <Link href="/" aria-label="KILUVA Home">
+              <img
+                src="/kiluva-logo.avif"
+                alt="KILUVA"
+                width={140}
+                height={56}
+                className="h-14 w-auto object-contain brightness-0 invert"
+              />
+            </Link>
             <p className="text-sm text-primary-foreground/70">
               Discover your perfect retreat with our curated collection of premium villas, apartments, cars and services in Rwanda.
             </p>

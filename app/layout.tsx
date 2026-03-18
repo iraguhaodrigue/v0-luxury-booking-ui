@@ -4,7 +4,7 @@ import { NotificationsProvider } from '@/contexts/NotificationsContext'
 import { NotificationContainer } from '@/components/ui/notification-container'
 
 export const metadata: Metadata = {
-  title: 'KILUVA — Discover Villas, Apartments, Cars & Services',
+  title: 'Kigali Luxury Villas and Apartments',
   description: 'Book villas, apartments, cars and services easily with Kiluva.',
   keywords: ['luxury villas Rwanda', 'apartments', 'car rental', 'premium services', 'Kiluva', 'Rwanda hospitality'],
   authors: [{ name: 'KILUVA' }],
