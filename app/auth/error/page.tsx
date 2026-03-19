@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { AlertCircle } from 'lucide-react'
 
 export const metadata = {
-  title: 'Authentication Error | Rwanda Luxury Hospitality',
+  title: 'Authentication Error | KILUVA',
   description: 'An error occurred during authentication',
 }
 
@@ -10,10 +10,14 @@ export default function AuthErrorPage() {
   return (
     <main className="min-h-screen flex items-center justify-center px-4">
       <div className="w-full max-w-md text-center space-y-6">
-        <Link href="/">
-          <h1 className="text-3xl font-serif font-bold text-primary">
-            Luxury<span className="text-accent">Stays</span>
-          </h1>
+        <Link href="/" aria-label="KILUVA Home">
+          <img
+            src="/kiluva-logo.avif"
+            alt="KILUVA"
+            width={140}
+            height={56}
+            className="h-14 w-auto object-contain mx-auto"
+          />
         </Link>
 
         <div className="w-16 h-16 mx-auto bg-destructive/10 rounded-full flex items-center justify-center">

@@ -36,8 +36,8 @@ async function fetchCars() {
 }
 
 export const metadata = {
-  title: 'Car Rental | Luxury Stays',
-  description: 'Rent luxury vehicles to complement your premium stay',
+  title: 'Car Rental | KILUVA',
+  description: 'Rent luxury vehicles to complement your premium Rwanda stay',
 }
 
 export default async function CarRentalPage() {
