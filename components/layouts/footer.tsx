@@ -88,7 +88,7 @@ export function Footer() {
               </div>
               <div className="flex items-start space-x-2">
                 <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>contact@kiluva.com</span>
+                <span>kigaliluxuryvillas@gmail.com</span>
               </div>
               <div className="flex items-start space-x-2">
                 <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />

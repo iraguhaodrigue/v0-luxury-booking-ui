@@ -195,7 +195,7 @@ export default function ProfilePage() {
                       value={formData.phone}
                       onChange={handleChange}
                       className="input-luxury w-full"
-                      placeholder="+1 (555) 123-4567"
+                      placeholder="+250 788 800 929"
                     />
                   </div>
                 </div>
