@@ -5,9 +5,9 @@ import { ServiceCard } from '@/components/services/service-card'
 import { createClient } from '@/lib/supabase/server'
 
 export const metadata = {
-  title: 'Premium Services | Rwanda Luxury Hospitality',
+  title: 'Premium Services | KILUVA',
   description:
-    'Enhance your luxury vacation in Rwanda with our exclusive premium services. Airport transfers, private chefs, spa, and more.',
+    'Enhance your luxury vacation in Rwanda with exclusive premium services. Airport transfers, private chefs, spa, and more.',
 }
 
 async function fetchServices() {

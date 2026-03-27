@@ -32,7 +32,7 @@ const CONTACT_INFO = [
   {
     Icon: Mail,
     label: 'Email',
-    lines: ['info@rwandaluxury.com', 'bookings@rwandaluxury.com'],
+    lines: ['info@kiluva.com', 'bookings@kiluva.com'],
   },
   {
     Icon: Clock,
