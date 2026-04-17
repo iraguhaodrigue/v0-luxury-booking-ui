@@ -1,11 +1,11 @@
 import Link from 'next/link'
-import { MapPin, Spa, Utensils, Navigation, Truck } from 'lucide-react'
+import { MapPin, Droplet, UtensilsCrossed, Navigation, Truck } from 'lucide-react'
 import { formatPrice } from '@/lib/utils/currency'
 import { createClient } from '@/lib/supabase/server'
 
 const serviceIcons: Record<string, any> = {
-  spa: Spa,
-  dining: Utensils,
+  spa: Droplet,
+  dining: UtensilsCrossed,
   tour: Navigation,
   transport: Truck,
 }
@@ -54,7 +54,7 @@ export async function ServicesHighlight() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           {services.map((service: any) => {
-            const IconComponent = serviceIcons[service.service_type] || Spa
+            const IconComponent = serviceIcons[service.service_type] || Droplet
             return (
               <Link key={service.id} href={`/services/${service.id}`}>
                 <div className="group cursor-pointer">
