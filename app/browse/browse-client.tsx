@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getAllProperties } from '@/lib/services/marketplace.service';
+import { getPropertiesByOwner } from '@/lib/services/marketplace.service';
+
 import { PropertyCard } from '@/components/marketplace/property-card';
 import { Button } from '@/components/ui/button';
 import { Loader2 } from 'lucide-react';

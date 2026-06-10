@@ -3,7 +3,8 @@
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Radio } from '@/components/ui/radio-group';
+import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+
 import Image from 'next/image';
 import { Users, Bed, Bath } from 'lucide-react';
 import type { Room } from '@/lib/types/marketplace';
