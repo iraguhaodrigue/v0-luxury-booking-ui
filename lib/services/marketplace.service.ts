@@ -18,13 +18,22 @@ import type {
 } from '@/lib/types/marketplace';
 import { revalidatePath } from 'next/cache';
 
-const supabase = createClient();
+// Helper to get supabase client with proper error handling
+async function getSupabaseClient() {
+  try {
+    return await createClient();
+  } catch (error) {
+    console.error('[marketplace.service] Failed to create Supabase client:', error);
+    throw error;
+  }
+}
 
 // ==========================================
 // LOCATION SERVICES
 // ==========================================
 
 export async function getCountries(): Promise<Country[]> {
+  const supabase = await getSupabaseClient();
   const { data, error } = await supabase
     .from('countries')
     .select('*')
@@ -437,6 +446,7 @@ export async function markNotificationAsRead(id: number): Promise<void> {
 // ==========================================
 
 export async function getProducts(limit = 20): Promise<Product[]> {
+  const supabase = await getSupabaseClient();
   const { data, error } = await supabase
     .from('products')
     .select('*, category:product_categories(*)')

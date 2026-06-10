@@ -40,6 +40,8 @@ export const metadata = {
   description: 'Rent luxury vehicles to complement your premium Rwanda stay',
 }
 
+export const revalidate = 3600 // Revalidate every hour
+
 export default async function CarRentalPage() {
   const cars = await fetchCars()
   return (
