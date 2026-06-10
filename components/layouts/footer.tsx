@@ -10,11 +10,17 @@ export function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8 mb-12">
           {/* Brand */}
           <div className="space-y-4">
-            <h3 className="text-2xl font-serif font-bold">
-              Luxury<span className="text-accent">Stays</span>
-            </h3>
+            <Link href="/" aria-label="KILUVA Home">
+              <img
+                src="/kiluva-logo.avif"
+                alt="KILUVA"
+                width={140}
+                height={56}
+                className="h-14 w-auto object-contain brightness-0 invert"
+              />
+            </Link>
             <p className="text-sm text-primary-foreground/70">
-              Discover your perfect luxury retreat with our curated collection of premium properties worldwide.
+              Discover your perfect retreat with our curated collection of premium villas, apartments, cars and services in Rwanda.
             </p>
           </div>
 
@@ -78,11 +84,11 @@ export function Footer() {
             <div className="space-y-3 text-sm">
               <div className="flex items-start space-x-2">
                 <Phone className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>+1 (555) 123-4567</span>
+                <span>+250 788 800 929</span>
               </div>
               <div className="flex items-start space-x-2">
                 <Mail className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                <span>contact@luxurystays.com</span>
+                <span>kigaliluxuryvillas@gmail.com</span>
               </div>
               <div className="flex items-start space-x-2">
                 <MapPin className="w-4 h-4 mt-0.5 flex-shrink-0" />
@@ -117,7 +123,7 @@ export function Footer() {
         {/* Divider */}
         <div className="border-t border-primary-foreground/10 pt-8">
           <div className="flex flex-col md:flex-row justify-between items-center text-sm text-primary-foreground/70">
-            <p>&copy; {currentYear} Luxury Stays. All rights reserved.</p>
+            <p>&copy; {currentYear} KILUVA. All rights reserved.</p>
             <div className="flex space-x-6 mt-4 md:mt-0">
               <Link href="/terms" className="hover:text-accent transition-colors">
                 Terms

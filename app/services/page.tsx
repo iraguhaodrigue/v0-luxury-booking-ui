@@ -2,16 +2,31 @@ import Link from 'next/link'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { ServiceCard } from '@/components/services/service-card'
-import { formatPrice } from '@/lib/utils/currency'
-import { SERVICES } from '@/lib/constants/rwanda-data'
+import { createClient } from '@/lib/supabase/server'
 
 export const metadata = {
-  title: 'Premium Services | Rwanda Luxury Hospitality',
+  title: 'Premium Services | KILUVA',
   description:
-    'Enhance your luxury vacation in Rwanda with our exclusive premium services. Airport transfers, private chefs, spa, and more.',
+    'Enhance your luxury vacation in Rwanda with exclusive premium services. Airport transfers, private chefs, spa, and more.',
 }
 
-export default function ServicesPage() {
+async function fetchServices() {
+  try {
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('services')
+      .select('*')
+      .order('created_at', { ascending: false })
+
+    if (error || !data) return []
+    return data
+  } catch {
+    return []
+  }
+}
+
+export default async function ServicesPage() {
+  const services = await fetchServices()
   return (
     <main className="w-full">
       <Navbar />
@@ -49,16 +64,23 @@ export default function ServicesPage() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {SERVICES.map((service) => (
-              <ServiceCard
-                key={service.id}
-                title={service.name}
-                description={service.description}
-                price={service.price}
-                duration={service.duration}
-                icon={service.icon}
-              />
-            ))}
+            {services && services.length > 0 ? (
+              services.map((service: any) => (
+                <ServiceCard
+                  key={service.id}
+                  id={service.id}
+                  title={service.name}
+                  description={service.description || 'Premium service'}
+                  price={service.price_per_day || 0}
+                  duration="Per day"
+                  image_url={service.image_url}
+                />
+              ))
+            ) : (
+              <div className="col-span-full text-center py-12">
+                <p className="text-muted-foreground">No services available</p>
+              </div>
+            )}
           </div>
         </div>
       </section>
@@ -69,7 +91,7 @@ export default function ServicesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             <div>
               <h3 className="font-serif font-bold text-2xl text-accent mb-2">
-                {SERVICES.length}+
+                {services && services.length > 0 ? services.length : 0}+
               </h3>
               <p className="text-muted-foreground">Premium services available</p>
             </div>

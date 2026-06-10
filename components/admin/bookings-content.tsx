@@ -1,175 +1,379 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { DataTable } from '@/components/admin/data-table'
 import { createClient } from '@/lib/supabase/client'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription,
+} from '@/components/ui/dialog'
+import { Loader2, CheckCircle, XCircle, MessageSquare, Send } from 'lucide-react'
+import { formatPrice } from '@/lib/utils/currency'
+import { Input } from '@/components/ui/input'
 
-interface BookingData {
-  id: number
-  guest_name: string
-  property_name: string
-  check_in_date: string
-  check_out_date: string
+interface Booking {
+  id: string
+  item_id: string
+  item_type: string
+  item_name: string | null
+  user_name: string
+  user_email: string
+  user_phone: string | null
+  guests: number
+  checkin: string
+  checkout: string
   total_price: number
-  status: string
-  nights: number
+  payment_method: string | null
+  extras: Array<{ id: number; name: string; price: number }> | null
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed'
+  admin_comment: string | null
+  confirmed_at: string | null
+  created_at: string
 }
 
-const columns = [
-  { key: 'id', label: 'Booking ID' },
-  { key: 'guest_name', label: 'Guest Name' },
-  { key: 'property_name', label: 'Property' },
-  {
-    key: 'check_in_date',
-    label: 'Check-in',
-    render: (value: string) => new Date(value).toLocaleDateString(),
-  },
-  {
-    key: 'check_out_date',
-    label: 'Check-out',
-    render: (value: string) => new Date(value).toLocaleDateString(),
-  },
-  { key: 'nights', label: 'Nights' },
-  {
-    key: 'total_price',
-    label: 'Total',
-    render: (value: number) => `$${value}`,
-  },
-  {
-    key: 'status',
-    label: 'Status',
-    render: (value: string) => (
-      <span
-        className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-          value === 'confirmed'
-            ? 'bg-accent/10 text-accent'
-            : 'bg-yellow-100 text-yellow-800'
-        }`}
-      >
-        {value.charAt(0).toUpperCase() + value.slice(1)}
-      </span>
-    ),
-  },
-]
+const STATUS_CONFIG = {
+  pending:   { label: 'Pending',   className: 'bg-yellow-100 text-yellow-800 border-yellow-200' },
+  confirmed: { label: 'Confirmed', className: 'bg-green-100 text-green-800 border-green-200' },
+  cancelled: { label: 'Cancelled', className: 'bg-red-100 text-red-800 border-red-200' },
+  completed: { label: 'Completed', className: 'bg-blue-100 text-blue-800 border-blue-200' },
+} as const
+
+const countNights = (checkin: string, checkout: string) =>
+  Math.max(1, Math.round((new Date(checkout).getTime() - new Date(checkin).getTime()) / 86_400_000))
 
 export default function BookingsContent() {
-  const [bookings, setBookings] = useState<BookingData[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
+  const [bookings,    setBookings]   = useState<Booking[]>([])
+  const [loading,     setLoading]    = useState(true)
+  const [filter,      setFilter]     = useState<string>('all')
+  const [selected,    setSelected]   = useState<Booking | null>(null)
+  const [comment,     setComment]    = useState('')
+  const [confirmationMsg, setConfirmationMsg] = useState('')
+  const [sendMessage, setSendMessage] = useState(true)
+  const [saving,      setSaving]     = useState(false)
+  const [dialogOpen,  setDialogOpen] = useState(false)
+
+  const supabase = createClient()
 
   useEffect(() => {
-    const fetchBookings = async () => {
-      try {
-        const supabase = createClient()
-        const { data, error } = await supabase
-          .from('bookings')
-          .select(`
-            id,
-            total_price,
-            status,
-            check_in_date,
-            check_out_date,
-            users (full_name),
-            rooms (property_id, properties (name))
-          `)
-          .order('created_at', { ascending: false })
-
-        if (error) throw error
-
-        const formattedBookings = data?.map((booking: any) => {
-          const checkIn = new Date(booking.check_in_date)
-          const checkOut = new Date(booking.check_out_date)
-          const nights = Math.ceil(
-            (checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24)
-          )
-
-          return {
-            id: booking.id,
-            guest_name: booking.users?.full_name || 'Unknown',
-            property_name: booking.rooms?.properties?.name || 'Unknown Property',
-            check_in_date: booking.check_in_date,
-            check_out_date: booking.check_out_date,
-            total_price: booking.total_price,
-            status: booking.status,
-            nights,
-          }
-        }) || []
-
-        setBookings(formattedBookings)
-      } catch (err) {
-        console.error('Error fetching bookings:', err)
-        setError('Failed to load bookings')
-      } finally {
-        setLoading(false)
-      }
-    }
-
-    fetchBookings()
+    loadBookings()
+    const channel = supabase
+      .channel('bookings_realtime')
+      .on('postgres_changes', { event: '*', schema: 'public', table: 'bookings' }, () => loadBookings())
+      .subscribe()
+    return () => { supabase.removeChannel(channel) }
   }, [])
 
-  const handleEdit = (booking: any) => {
-    console.log('Edit booking:', booking)
+  const loadBookings = async () => {
+    const { data, error } = await supabase
+      .from('bookings')
+      .select('*')
+      .order('created_at', { ascending: false })
+    if (!error) setBookings((data ?? []) as Booking[])
+    setLoading(false)
   }
 
-  const handleDelete = async (booking: any) => {
-    try {
-      const supabase = createClient()
-      const { error } = await supabase
-        .from('bookings')
-        .delete()
-        .eq('id', booking.id)
+  const openDetail = (b: Booking) => {
+    setSelected(b)
+    setComment(b.admin_comment ?? '')
+    // Set default confirmation message based on item type
+    const itemType = b.item_type === 'car' ? 'car rental' : b.item_type === 'service' ? 'service' : 'booking'
+    setConfirmationMsg(`Your ${itemType} for ${b.item_name || 'your selected item'} has been confirmed. We look forward to serving you!`)
+    setSendMessage(true)
+    setDialogOpen(true)
+  }
 
-      if (error) throw error
-      setBookings(bookings.filter(b => b.id !== booking.id))
-    } catch (err) {
-      console.error('Error deleting booking:', err)
+  const updateStatus = async (status: Booking['status']) => {
+    if (!selected) return
+    setSaving(true)
+    const patch: Record<string, unknown> = {
+      status,
+      admin_comment: comment.trim() || null,
+      ...(status === 'confirmed' ? { confirmed_at: new Date().toISOString() } : {}),
     }
+    const { data, error } = await supabase
+      .from('bookings')
+      .update(patch)
+      .eq('id', selected.id)
+      .select()
+      .single()
+
+    if (!error && data) {
+      const updated = data as Booking
+      setSelected(updated)
+      setBookings(prev => prev.map(b => b.id === updated.id ? updated : b))
+      
+      // Send confirmation/rejection message to customer
+      if (sendMessage && confirmationMsg.trim()) {
+        const messageText = status === 'confirmed' 
+          ? confirmationMsg.trim()
+          : status === 'cancelled'
+            ? `We're sorry, but your booking for ${selected.item_name || 'your selected item'} could not be confirmed. ${confirmationMsg.trim() ? `Reason: ${confirmationMsg.trim()}` : 'Please contact us for more information.'}`
+            : confirmationMsg.trim()
+        
+        await supabase.from('messages').insert({
+          name: 'Support Team',
+          sender_email: selected.user_email,
+          message: messageText,
+          sender_role: 'admin',
+          read_by_admin: true,
+          read_by_customer: false,
+          booking_id: selected.id,
+        })
+      }
+      
+      setDialogOpen(false)
+    }
+    setSaving(false)
   }
 
-  const handleView = (booking: any) => {
-    console.log('View booking:', booking)
+  const saveNote = async () => {
+    if (!selected) return
+    setSaving(true)
+    await supabase.from('bookings').update({ admin_comment: comment.trim() || null }).eq('id', selected.id)
+    setBookings(prev => prev.map(b => b.id === selected.id ? { ...b, admin_comment: comment.trim() || null } : b))
+    setSaving(false)
+    setDialogOpen(false)
   }
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-12">
-        <p className="text-muted-foreground">Loading bookings...</p>
-      </div>
-    )
-  }
+  const filtered = filter === 'all' ? bookings : bookings.filter(b => b.status === filter)
+  const counts   = bookings.reduce((acc, b) => { acc[b.status] = (acc[b.status] ?? 0) + 1; return acc }, {} as Record<string, number>)
 
   return (
-    <div>
-      {error && (
-        <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded mb-4">
-          {error}
-        </div>
-      )}
-
-      {/* Filters */}
-      <div className="flex gap-4 mb-8 flex-wrap">
-        <input
-          type="text"
-          placeholder="Search by guest or booking ID..."
-          className="input-luxury flex-1 min-w-[200px]"
-        />
-        <select className="input-luxury">
-          <option>All Status</option>
-          <option>confirmed</option>
-          <option>pending</option>
-          <option>cancelled</option>
-        </select>
-        <input type="date" className="input-luxury" />
+    <div className="space-y-6">
+      {/* Stats */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+        {(['all', 'pending', 'confirmed', 'cancelled'] as const).map(s => (
+          <button
+            key={s}
+            onClick={() => setFilter(s)}
+            className={`rounded-xl border p-4 text-left transition-all ${
+              filter === s ? 'border-accent bg-accent/10' : 'border-border bg-secondary hover:border-accent/40'
+            }`}
+          >
+            <p className="text-2xl font-bold text-foreground">
+              {s === 'all' ? bookings.length : (counts[s] ?? 0)}
+            </p>
+            <p className="text-xs font-medium text-muted-foreground capitalize mt-1">{s}</p>
+          </button>
+        ))}
       </div>
 
       {/* Table */}
-      <DataTable
-        columns={columns}
-        data={bookings}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onView={handleView}
-      />
+      {loading ? (
+        <div className="flex justify-center py-16"><Loader2 className="w-8 h-8 animate-spin text-accent" /></div>
+      ) : filtered.length === 0 ? (
+        <div className="text-center py-16 text-muted-foreground">No bookings found.</div>
+      ) : (
+        <div className="overflow-x-auto rounded-xl border border-border">
+          <table className="w-full text-sm">
+            <thead className="bg-secondary border-b border-border">
+              <tr>
+                {['Guest', 'Item', 'Dates', 'Total', 'Payment', 'Status', ''].map(h => (
+                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap">{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {filtered.map(b => {
+                const cfg = STATUS_CONFIG[b.status]
+                return (
+                  <tr key={b.id} className="hover:bg-secondary/50 transition-colors">
+                    <td className="px-4 py-3">
+                      <p className="font-semibold text-foreground">{b.user_name}</p>
+                      <p className="text-xs text-muted-foreground">{b.user_email}</p>
+                      {b.user_phone && <p className="text-xs text-muted-foreground">{b.user_phone}</p>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <p className="font-medium text-foreground">{b.item_name ?? b.item_id}</p>
+                      <p className="text-xs text-muted-foreground capitalize">{b.item_type}</p>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <p className="text-foreground">{b.checkin}</p>
+                      <p className="text-muted-foreground">→ {b.checkout}</p>
+                      <p className="text-xs text-muted-foreground">{countNights(b.checkin, b.checkout)} nights</p>
+                    </td>
+                    <td className="px-4 py-3 font-semibold text-foreground whitespace-nowrap">
+                      {formatPrice(b.total_price)}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-muted-foreground">{b.payment_method ?? '—'}</td>
+                    <td className="px-4 py-3">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border ${cfg.className}`}>
+                        {cfg.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <Button size="sm" variant="outline" onClick={() => openDetail(b)}>Manage</Button>
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {/* Detail dialog */}
+      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Booking Detail</DialogTitle>
+            <DialogDescription>Review and update this reservation.</DialogDescription>
+          </DialogHeader>
+
+          {selected && (
+            <div className="space-y-4 py-1 max-h-[60vh] overflow-y-auto pr-1">
+              <div className="flex items-center gap-2">
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold border ${STATUS_CONFIG[selected.status].className}`}>
+                  {STATUS_CONFIG[selected.status].label}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(selected.created_at).toLocaleDateString()}
+                </span>
+              </div>
+
+              {/* Guest */}
+              <div className="rounded-xl bg-secondary p-4 space-y-2 text-sm">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Guest</p>
+                {[
+                  { l: 'Name',   v: selected.user_name },
+                  { l: 'Email',  v: selected.user_email },
+                  { l: 'Phone',  v: selected.user_phone ?? '—' },
+                  { l: 'Guests', v: String(selected.guests) },
+                ].map(({ l, v }) => (
+                  <div key={l} className="flex justify-between">
+                    <span className="text-muted-foreground">{l}</span>
+                    <span className="font-semibold text-foreground">{v}</span>
+                  </div>
+                ))}
+              </div>
+
+              {/* Stay */}
+              <div className="rounded-xl bg-secondary p-4 space-y-2 text-sm">
+                <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Stay</p>
+                {[
+                  { l: 'Item',       v: selected.item_name ?? selected.item_id },
+                  { l: 'Type',       v: selected.item_type },
+                  { l: 'Check-in',   v: selected.checkin },
+                  { l: 'Check-out',  v: selected.checkout },
+                  { l: 'Nights',     v: String(countNights(selected.checkin, selected.checkout)) },
+                  { l: 'Payment',    v: selected.payment_method ?? '—' },
+                ].map(({ l, v }) => (
+                  <div key={l} className="flex justify-between">
+                    <span className="text-muted-foreground">{l}</span>
+                    <span className="font-semibold text-foreground capitalize">{v}</span>
+                  </div>
+                ))}
+                <div className="flex justify-between border-t border-border pt-2">
+                  <span className="font-bold text-foreground">Total</span>
+                  <span className="font-bold text-accent">{formatPrice(selected.total_price)}</span>
+                </div>
+              </div>
+
+              {/* Extras */}
+              {selected.extras && selected.extras.length > 0 && (
+                <div className="rounded-xl bg-secondary p-4 text-sm">
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Extras</p>
+                  <ul className="space-y-1">
+                    {selected.extras.map((e, i) => (
+                      <li key={i} className="flex justify-between">
+                        <span className="text-foreground">{e.name}</span>
+                        <span className="text-muted-foreground">{formatPrice(e.price)}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+
+              {/* Admin note */}
+              <div>
+                <label className="block text-sm font-medium text-foreground mb-2">
+                  <MessageSquare className="inline w-4 h-4 mr-1 text-accent" />
+                  Admin Note (internal)
+                </label>
+                <Textarea
+                  placeholder="Optional internal note for this booking…"
+                  value={comment}
+                  onChange={e => setComment(e.target.value)}
+                  rows={2}
+                />
+              </div>
+              
+              {/* Confirmation message to customer */}
+              {selected?.status === 'pending' && (
+                <div className="rounded-xl border border-accent/30 bg-accent/5 p-4 space-y-3">
+                  <div className="flex items-center justify-between">
+                    <label className="text-sm font-medium text-foreground flex items-center gap-2">
+                      <Send className="w-4 h-4 text-accent" />
+                      Send Message to Customer
+                    </label>
+                    <label className="flex items-center gap-2 text-sm">
+                      <input
+                        type="checkbox"
+                        checked={sendMessage}
+                        onChange={e => setSendMessage(e.target.checked)}
+                        className="w-4 h-4 accent-accent"
+                      />
+                      <span className="text-muted-foreground">Enabled</span>
+                    </label>
+                  </div>
+                  {sendMessage && (
+                    <Textarea
+                      placeholder="Message to send to customer on confirmation..."
+                      value={confirmationMsg}
+                      onChange={e => setConfirmationMsg(e.target.value)}
+                      rows={3}
+                      className="text-sm"
+                    />
+                  )}
+                  <p className="text-xs text-muted-foreground">
+                    This message will be sent to the customer when you confirm or reject the booking.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
+
+          <DialogFooter className="flex-wrap gap-2 pt-2">
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="flex-1 min-w-[80px]">
+              Close
+            </Button>
+            {selected?.status === 'pending' && (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => updateStatus('cancelled')}
+                  disabled={saving}
+                  className="flex-1 min-w-[80px] border-red-200 text-red-700 hover:bg-red-50"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><XCircle className="w-4 h-4 mr-1" />Reject</>}
+                </Button>
+                <Button
+                  onClick={() => updateStatus('confirmed')}
+                  disabled={saving}
+                  className="flex-1 min-w-[80px] bg-green-600 hover:bg-green-700 text-white"
+                >
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <><CheckCircle className="w-4 h-4 mr-1" />Confirm</>}
+                </Button>
+              </>
+            )}
+            {selected?.status === 'confirmed' && (
+              <>
+                <Button onClick={saveNote} disabled={saving} variant="outline" className="flex-1 min-w-[80px]">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Note'}
+                </Button>
+                <Button onClick={() => updateStatus('completed')} disabled={saving} className="flex-1 min-w-[80px]">
+                  {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Mark Completed'}
+                </Button>
+              </>
+            )}
+            {(selected?.status === 'cancelled' || selected?.status === 'completed') && (
+              <Button onClick={saveNote} disabled={saving} className="flex-1 min-w-[80px]">
+                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Save Note'}
+              </Button>
+            )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

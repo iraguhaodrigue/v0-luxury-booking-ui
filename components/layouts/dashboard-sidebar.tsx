@@ -2,13 +2,14 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Calendar, User, CreditCard, LogOut, Home, Menu, X } from 'lucide-react'
+import { Calendar, User, CreditCard, LogOut, Home, Menu, X, MessageSquare } from 'lucide-react'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
   { href: '/dashboard', icon: Home, label: 'Overview' },
   { href: '/dashboard/bookings', icon: Calendar, label: 'My Bookings' },
+  { href: '/dashboard/messages', icon: MessageSquare, label: 'Messages' },
   { href: '/dashboard/profile', icon: User, label: 'Profile' },
   { href: '/dashboard/payments', icon: CreditCard, label: 'Payments' },
 ]
@@ -29,7 +30,8 @@ export function DashboardSidebar() {
     <>
       {/* Mobile Menu Button */}
       <div className="md:hidden sticky top-20 z-40 bg-background border-b border-border px-4 py-3 flex justify-between items-center">
-        <h2 className="font-serif font-bold text-foreground">Dashboard</h2>
+        {/* Icon only on mobile to save space */}
+        <Home className="w-5 h-5 text-accent" aria-label="Dashboard" />
         <button
           onClick={() => setIsOpen(!isOpen)}
           className="p-2 hover:bg-secondary rounded-md transition-colors"

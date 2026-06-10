@@ -1,11 +1,13 @@
 import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import { NotificationsProvider } from '@/contexts/NotificationsContext'
+import { NotificationContainer } from '@/components/ui/notification-container'
 
 export const metadata: Metadata = {
-  title: 'Rwanda Luxury | Premium Villas & Hospitality',
-  description: 'Experience luxury living in Rwanda. Book exquisite villas, hotel rooms, and premium services in Kigali, Rubavu, Musanze, and Huye.',
-  keywords: ['luxury villas Rwanda', 'hotel rooms', 'Rwanda hospitality', 'Kigali villas', 'premium accommodations'],
-  authors: [{ name: 'Rwanda Luxury Hospitality' }],
+  title: 'KILUVA — Villas, Apartments, Cars & Services in Rwanda',
+  description: 'Book villas, apartments, cars and services easily with KILUVA.',
+  keywords: ['luxury villas Rwanda', 'apartments', 'car rental', 'premium services', 'KILUVA', 'Rwanda hospitality'],
+  authors: [{ name: 'KILUVA' }],
 }
 
 export const viewport: Viewport = {
@@ -21,7 +23,12 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="font-sans antialiased">{children}</body>
+      <body className="font-sans antialiased">
+        <NotificationsProvider>
+          {children}
+          <NotificationContainer />
+        </NotificationsProvider>
+      </body>
     </html>
   )
 }

@@ -1,8 +1,11 @@
+'use client'
+
 import { ReactNode } from 'react'
-import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { formatPrice } from '@/lib/utils/currency'
 
 interface ServiceCardProps {
+  id?: number | string
   icon?: ReactNode
   title: string
   description: string
@@ -10,9 +13,11 @@ interface ServiceCardProps {
   price: number
   duration: string
   image?: string
+  image_url?: string          // primary image column from DB
 }
 
 export function ServiceCard({
+  id,
   icon,
   title,
   description,
@@ -20,14 +25,26 @@ export function ServiceCard({
   price,
   duration,
   image,
+  image_url,
 }: ServiceCardProps) {
+  const router = useRouter()
+
+  const handleBooking = () => {
+    if (id) {
+      router.push(`/booking?type=service&id=${id}`)
+    }
+  }
+
+  // Use image_url (DB column) first, then image prop fallback
+  const displayImage = image_url || image
+
   return (
     <div className="card-luxury h-full flex flex-col group overflow-hidden">
       {/* Image or Icon Background */}
-      {image ? (
+      {displayImage ? (
         <div className="relative h-48 mb-4 overflow-hidden rounded-lg">
           <img
-            src={image}
+            src={displayImage}
             alt={title}
             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
           />
@@ -69,8 +86,11 @@ export function ServiceCard({
             <p className="text-xs text-muted-foreground">{duration}</p>
           </div>
         </div>
-        <button className="w-full btn-luxury-ghost text-sm">
-          Learn More
+        <button
+          onClick={handleBooking}
+          className="w-full bg-accent text-accent-foreground hover:bg-accent/90 px-4 py-2 rounded-lg font-semibold transition-all duration-300 shadow-luxury hover:shadow-luxury-md"
+        >
+          Book Now
         </button>
       </div>
     </div>

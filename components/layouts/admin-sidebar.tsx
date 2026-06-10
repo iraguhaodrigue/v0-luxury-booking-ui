@@ -2,19 +2,22 @@
 
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
-import { Home, Building2, DoorOpen, Calendar, Settings, Car, DollarSign, Users, LogOut, Menu, X } from 'lucide-react'
+import { Home, Building2, DoorOpen, Calendar, Settings, Car, DollarSign, Users, LogOut, Menu, X, Bell, Star, MessageSquare } from 'lucide-react'
 import { useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
 
 const navItems = [
-  { href: '/admin', icon: Home, label: 'Overview' },
-  { href: '/admin/properties', icon: Building2, label: 'Properties' },
-  { href: '/admin/rooms', icon: DoorOpen, label: 'Rooms' },
-  { href: '/admin/bookings', icon: Calendar, label: 'Bookings' },
-  { href: '/admin/services', icon: Settings, label: 'Services' },
-  { href: '/admin/cars', icon: Car, label: 'Cars' },
-  { href: '/admin/users', icon: Users, label: 'Users' },
-  { href: '/admin/payments', icon: DollarSign, label: 'Payments' },
+  { href: '/admin',               icon: Home,          label: 'Overview' },
+  { href: '/admin/properties',    icon: Building2,     label: 'Properties' },
+  { href: '/admin/rooms',         icon: DoorOpen,      label: 'Rooms' },
+  { href: '/admin/bookings',      icon: Calendar,      label: 'Bookings' },
+  { href: '/admin/services',      icon: Settings,      label: 'Services' },
+  { href: '/admin/cars',          icon: Car,           label: 'Cars' },
+  { href: '/admin/messages',      icon: MessageSquare, label: 'Messages' },
+  { href: '/admin/reviews',       icon: Star,          label: 'Reviews' },
+  { href: '/admin/notifications', icon: Bell,          label: 'Notifications' },
+  { href: '/admin/users',         icon: Users,         label: 'Users' },
+  { href: '/admin/payments',      icon: DollarSign,    label: 'Payments' },
 ]
 
 export function AdminSidebar() {

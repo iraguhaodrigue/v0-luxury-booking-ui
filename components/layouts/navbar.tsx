@@ -3,15 +3,30 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Menu, X, Search, User, Heart, LogOut, Shield, LayoutDashboard } from 'lucide-react'
+import { Menu, X, Search, User, Heart, LogOut, Shield, LayoutDashboard, Bell, Mail } from 'lucide-react'
 import { createClient } from '@/lib/supabase/client'
 import type { User as SupabaseUser } from '@supabase/supabase-js'
+
+// This is needed for hydration - we'll use context at the component level
+let NotificationsProvider: React.FC<any> | null = null
+let useNotificationsHook: (() => any) | null = null
+
+try {
+  const notif = require('@/contexts/NotificationsContext')
+  NotificationsProvider = notif.NotificationsProvider
+  useNotificationsHook = notif.useNotifications
+} catch {
+  // Fallback if context not available
+}
 
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false)
   const [userMenuOpen, setUserMenuOpen] = useState(false)
   const [user, setUser] = useState<SupabaseUser | null>(null)
   const [loading, setLoading] = useState(true)
+  const [unreadNotifications, setUnreadNotifications] = useState(0)
+  const [messagesUnread, setMessagesUnread] = useState(0)
+  const [bookingsPending, setBookingsPending] = useState(0)
   const router = useRouter()
 
   useEffect(() => {
@@ -20,6 +35,14 @@ export function Navbar() {
     async function getUser() {
       const { data: { user } } = await supabase.auth.getUser()
       setUser(user)
+      
+      if (user?.user_metadata?.role === 'admin') {
+        fetchUnreadNotifications()
+      } else if (user?.email) {
+        // Fetch customer notifications
+        fetchCustomerNotifications(user.email)
+      }
+      
       setLoading(false)
     }
 
@@ -31,6 +54,48 @@ export function Navbar() {
 
     return () => subscription.unsubscribe()
   }, [])
+
+  const fetchUnreadNotifications = async () => {
+    try {
+      const supabase = createClient()
+      const { count, error } = await supabase
+        .from('notifications')
+        .select('*', { count: 'exact', head: true })
+        .is('read_at', null)
+
+      if (!error && count) {
+        setUnreadNotifications(count)
+      }
+    } catch (error) {
+      console.error('Error fetching notifications:', error)
+    }
+  }
+
+  const fetchCustomerNotifications = async (email: string) => {
+    try {
+      const supabase = createClient()
+
+      // Unread messages sent to this customer (read_by_customer is false or null)
+      const { count: messagesCount } = await supabase
+        .from('messages')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_email', email)
+        .eq('read_by_customer', false)
+
+      setMessagesUnread(messagesCount ?? 0)
+
+      // Pending bookings (awaiting admin decision)
+      const { count: pendingCount } = await supabase
+        .from('bookings')
+        .select('*', { count: 'exact', head: true })
+        .eq('user_email', email)
+        .eq('status', 'pending')
+
+      setBookingsPending(pendingCount ?? 0)
+    } catch (error) {
+      console.error('Error fetching customer notifications:', error)
+    }
+  }
 
   async function handleSignOut() {
     const supabase = createClient()
@@ -48,7 +113,7 @@ export function Navbar() {
     { href: '/properties', label: 'Villas & Apartments' },
     { href: '/services', label: 'Services' },
     { href: '/car-rental', label: 'Car Rental' },
-    { href: '/about', label: 'About' },
+    { href: '/contact', label: 'Contact' },
   ]
 
   return (
@@ -56,10 +121,14 @@ export function Navbar() {
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex justify-between items-center h-20">
           {/* Logo */}
-          <Link href="/" className="flex-shrink-0">
-            <h1 className="text-2xl font-serif font-bold text-primary">
-              Luxury<span className="text-accent">Stays</span>
-            </h1>
+          <Link href="/" className="flex-shrink-0" aria-label="KILUVA Home">
+            <img
+              src="/kiluva-logo.avif"
+              alt="KILUVA"
+              width={120}
+              height={48}
+              className="h-12 w-auto object-contain"
+            />
           </Link>
 
           {/* Desktop Navigation */}
@@ -86,6 +155,39 @@ export function Navbar() {
                 <button className="p-2 hover:bg-secondary rounded-md transition-colors" aria-label="Favorites">
                   <Heart className="w-5 h-5 text-foreground" />
                 </button>
+
+                {isAdmin && (
+                  <Link href="/admin/notifications" className="relative p-2 hover:bg-secondary rounded-md transition-colors">
+                    <Bell className="w-5 h-5 text-foreground" />
+                    {unreadNotifications > 0 && (
+                      <span className="absolute top-1 right-1 inline-flex items-center justify-center w-5 h-5 text-xs font-bold leading-none text-white bg-red-600 rounded-full">
+                        {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                      </span>
+                    )}
+                  </Link>
+                )}
+
+                {!isAdmin && (
+                  <Link href="/dashboard/messages" className="relative p-2 hover:bg-secondary rounded-md transition-colors" title="Messages">
+                    <Mail className="w-5 h-5 text-foreground" />
+                    {messagesUnread > 0 && (
+                      <span className="absolute top-1 right-1 inline-flex items-center justify-center w-4 h-4 text-xs font-bold leading-none text-white bg-accent rounded-full">
+                        {messagesUnread > 9 ? '9+' : messagesUnread}
+                      </span>
+                    )}
+                  </Link>
+                )}
+
+                {!isAdmin && (
+                  <Link href="/dashboard/bookings" className="relative p-2 hover:bg-secondary rounded-md transition-colors" title="Bookings">
+                    <Heart className="w-5 h-5 text-foreground" />
+                    {bookingsPending > 0 && (
+                      <span className="absolute top-1 right-1 inline-flex items-center justify-center w-4 h-4 text-xs font-bold leading-none text-white bg-yellow-500 rounded-full">
+                        {bookingsPending > 9 ? '9+' : bookingsPending}
+                      </span>
+                    )}
+                  </Link>
+                )}
 
                 {/* User Dropdown */}
                 <div className="relative">

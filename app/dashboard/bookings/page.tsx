@@ -1,219 +1,227 @@
+'use client'
+
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Navbar } from '@/components/layouts/navbar'
 import { DashboardSidebar } from '@/components/layouts/dashboard-sidebar'
 import { Footer } from '@/components/layouts/footer'
-import { MapPin, Calendar, DollarSign, Download, Eye } from 'lucide-react'
+import { formatPrice } from '@/lib/utils/currency'
+import { useBookings } from '@/hooks/useBookings'
+import { useNotifications } from '@/contexts/NotificationsContext'
+import { Calendar, MapPin, Eye, Download, Filter, Loader2 } from 'lucide-react'
+import Link from 'next/link'
 
-// Will be fetched from database
-
-export const metadata = {
-  title: 'My Bookings | Luxury Stays',
-  description: 'View and manage all your luxury stay bookings',
+interface BookableItem {
+  id: string
+  item_name: string
+  item_type: string
+  checkin: string
+  checkout: string
+  status: 'pending' | 'confirmed' | 'rejected' | 'completed'
+  total_price: string | number
+  created_at: string
 }
 
-import { createClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
+export default function BookingsPage() {
+  const router = useRouter()
+  const [user, setUser] = useState<any>(null)
+  const [loadingUser, setLoadingUser] = useState(true)
+  const [filter, setFilter] = useState<'all' | 'pending' | 'confirmed' | 'completed' | 'rejected'>('all')
 
-export default async function BookingsPage() {
-  const supabase = await createClient()
-  const { data: { user } } = await supabase.auth.getUser()
+  const supabase = createClient()
+  const { addNotification } = useNotifications()
+
+  // Get user
+  useEffect(() => {
+    const getUser = async () => {
+      const { data: { user: authUser } } = await supabase.auth.getUser()
+      if (!authUser) {
+        router.push('/auth/login')
+      } else {
+        setUser(authUser)
+      }
+      setLoadingUser(false)
+    }
+    getUser()
+  }, [supabase, router])
+
+  // Use real-time bookings hook — pass both uid and email for full coverage
+  const { bookings, loading, error } = useBookings(user?.id || null, user?.email || null)
+
+  // Calculate stats
+  const filteredBookings = filter === 'all' 
+    ? bookings 
+    : bookings.filter(b => b.status === filter)
   
-  if (!user) {
-    redirect('/auth/login')
+  const confirmedCount = bookings.filter(b => b.status === 'confirmed').length
+  const pendingCount = bookings.filter(b => b.status === 'pending').length
+  const completedCount = bookings.filter(b => b.status === 'completed').length
+
+  const getStatusColor = (status: string) => {
+    switch (status) {
+      case 'confirmed':
+        return 'bg-green-100 text-green-800'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800'
+      case 'completed':
+        return 'bg-blue-100 text-blue-800'
+      case 'rejected':
+        return 'bg-red-100 text-red-800'
+      default:
+        return 'bg-gray-100 text-gray-800'
+    }
   }
 
-  // Fetch real bookings for the current user
-  const { data: bookingsData } = await supabase
-    .from('bookings')
-    .select('id, check_in_date, check_out_date, status, total_price, rooms(properties(name, image_url, location))')
-    .eq('auth_user_id', user.id)
-    .order('created_at', { ascending: false })
-
-  const bookings = (bookingsData || []).map((b: any) => {
-    const checkIn = new Date(b.check_in_date)
-    const checkOut = new Date(b.check_out_date)
-    const nights = Math.ceil((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
-    
-    return {
-      id: `BK-${b.id}`,
-      property: b.rooms?.properties?.name || 'Unknown Property',
-      location: b.rooms?.properties?.location || 'Rwanda',
-      checkIn: b.check_in_date,
-      checkOut: b.check_out_date,
-      status: b.status?.charAt(0).toUpperCase() + b.status?.slice(1) || 'Pending',
-      total: b.total_price || 0,
-      nights,
-      image: b.rooms?.properties?.image_url || 'https://images.unsplash.com/photo-1570129477492-45a003537e1f?w=300&q=80',
-    }
-  })
-
-  const confirmedCount = bookings.filter((b) => b.status === 'Confirmed').length
-  const completedCount = bookings.filter((b) => b.status === 'Completed').length
+  if (loadingUser) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <Loader2 className="w-8 h-8 animate-spin text-accent" />
+      </div>
+    )
+  }
 
   return (
-    <main className="w-full min-h-screen flex flex-col">
+    <div className="flex flex-col min-h-screen bg-background">
       <Navbar />
 
       <div className="flex flex-1">
         <DashboardSidebar />
 
-        <div className="flex-1 overflow-y-auto">
-          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Header */}
-            <div className="mb-8">
-              <h1 className="text-4xl font-serif font-bold text-foreground mb-2">
-                My Bookings
-              </h1>
-              <p className="text-muted-foreground">
-                View and manage all your luxury stay reservations
-              </p>
+        <main className="flex-1 px-4 sm:px-6 lg:px-8 py-8 max-w-7xl mx-auto w-full">
+          {/* Header */}
+          <div className="mb-8">
+            <h1 className="text-3xl md:text-4xl font-serif font-bold text-foreground mb-2">My Bookings</h1>
+            <p className="text-muted-foreground">Manage and track all your bookings</p>
+          </div>
+
+          {/* Stats */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-8">
+            <div className="card-luxury">
+              <p className="text-muted-foreground text-sm mb-1">Total</p>
+              <p className="text-2xl font-bold text-foreground">{bookings.length}</p>
             </div>
-
-            {/* Stats */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-              <div className="card-luxury">
-                <p className="text-muted-foreground text-sm mb-1">
-                  Total Bookings
-                </p>
-                <p className="text-3xl font-bold text-foreground">
-                  {bookings.length}
-                </p>
-              </div>
-              <div className="card-luxury">
-                <p className="text-muted-foreground text-sm mb-1">
-                  Confirmed
-                </p>
-                <p className="text-3xl font-bold text-accent">
-                  {confirmedCount}
-                </p>
-              </div>
-              <div className="card-luxury">
-                <p className="text-muted-foreground text-sm mb-1">
-                  Completed
-                </p>
-                <p className="text-3xl font-bold text-foreground">
-                  {completedCount}
-                </p>
-              </div>
+            <div className="card-luxury">
+              <p className="text-muted-foreground text-sm mb-1">Pending</p>
+              <p className="text-2xl font-bold text-yellow-600">{pendingCount}</p>
             </div>
-
-            {/* Bookings List */}
-            <div className="bg-card rounded-lg shadow-luxury overflow-hidden">
-              <div className="overflow-x-auto">
-                <table className="w-full">
-                  <thead>
-                    <tr className="border-b border-border bg-secondary">
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
-                        Property
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
-                        Dates
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
-                        Status
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
-                        Total
-                      </th>
-                      <th className="px-6 py-4 text-left text-sm font-semibold text-foreground">
-                        Actions
-                      </th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {bookings.map((booking) => (
-                      <tr
-                        key={booking.id}
-                        className="border-b border-border hover:bg-secondary/30 transition-colors"
-                      >
-                        {/* Property */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-3">
-                            <img
-                              src={booking.image}
-                              alt={booking.property}
-                              className="w-12 h-12 rounded-lg object-cover"
-                            />
-                            <div>
-                              <p className="font-semibold text-foreground">
-                                {booking.property}
-                              </p>
-                              <div className="flex items-center space-x-1 text-muted-foreground text-xs mt-1">
-                                <MapPin className="w-3 h-3" />
-                                <span>{booking.location}</span>
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-
-                        {/* Dates */}
-                        <td className="px-6 py-4 text-sm">
-                          <div className="flex items-center space-x-1 text-muted-foreground">
-                            <Calendar className="w-4 h-4" />
-                            <span>
-                              {new Date(booking.checkIn).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })}{' '}
-                              -{' '}
-                              {new Date(booking.checkOut).toLocaleDateString('en-US', {
-                                month: 'short',
-                                day: 'numeric',
-                              })}
-                            </span>
-                          </div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            {booking.nights} nights
-                          </p>
-                        </td>
-
-                        {/* Status */}
-                        <td className="px-6 py-4">
-                          <span
-                            className={`inline-block px-3 py-1 rounded-full text-xs font-semibold ${
-                              booking.status === 'Confirmed'
-                                ? 'bg-accent/10 text-accent'
-                                : booking.status === 'Pending'
-                                  ? 'bg-yellow-100 text-yellow-800'
-                                  : 'bg-muted text-muted-foreground'
-                            }`}
-                          >
-                            {booking.status}
-                          </span>
-                        </td>
-
-                        {/* Total */}
-                        <td className="px-6 py-4 text-sm font-semibold text-foreground">
-                          ${booking.total}
-                        </td>
-
-                        {/* Actions */}
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-2">
-                            <button
-                              title="View Details"
-                              className="p-2 hover:bg-secondary rounded-md transition-colors"
-                            >
-                              <Eye className="w-4 h-4 text-foreground" />
-                            </button>
-                            <button
-                              title="Download Invoice"
-                              className="p-2 hover:bg-secondary rounded-md transition-colors"
-                            >
-                              <Download className="w-4 h-4 text-foreground" />
-                            </button>
-                          </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            <div className="card-luxury">
+              <p className="text-muted-foreground text-sm mb-1">Confirmed</p>
+              <p className="text-2xl font-bold text-green-600">{confirmedCount}</p>
+            </div>
+            <div className="card-luxury">
+              <p className="text-muted-foreground text-sm mb-1">Completed</p>
+              <p className="text-2xl font-bold text-blue-600">{completedCount}</p>
             </div>
           </div>
-        </div>
+
+          {/* Filter buttons */}
+          <div className="mb-6 flex flex-wrap gap-2">
+            {['all', 'pending', 'confirmed', 'completed'].map((status) => (
+              <button
+                key={status}
+                onClick={() => setFilter(status as any)}
+                className={`px-4 py-2 rounded-lg font-semibold transition-colors ${
+                  filter === status
+                    ? 'bg-accent text-accent-foreground'
+                    : 'bg-secondary text-foreground hover:bg-secondary/80'
+                }`}
+              >
+                <Filter className="inline w-4 h-4 mr-2" />
+                {status.charAt(0).toUpperCase() + status.slice(1)}
+              </button>
+            ))}
+          </div>
+
+          {/* Loading state */}
+          {loading && (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="w-8 h-8 animate-spin text-accent" />
+            </div>
+          )}
+
+          {/* Error state */}
+          {error && (
+            <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+              <p className="text-red-800">{error}</p>
+            </div>
+          )}
+
+          {/* Empty state */}
+          {!loading && filteredBookings.length === 0 && (
+            <div className="text-center py-12">
+              <Calendar className="w-12 h-12 text-muted-foreground/30 mx-auto mb-4" />
+              <p className="text-muted-foreground mb-4">No {filter !== 'all' ? filter : ''} bookings yet.</p>
+              <Link href="/properties">
+                <button className="btn-luxury-accent">Browse Properties</button>
+              </Link>
+            </div>
+          )}
+
+          {/* Bookings list */}
+          <div className="space-y-4">
+            {filteredBookings.map((booking) => (
+              <div
+                key={booking.id}
+                className="card-luxury hover:shadow-luxury-md transition-all"
+              >
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-lg font-semibold text-foreground">{booking.item_name}</h3>
+                      <span className={`px-3 py-1 rounded-full text-xs font-semibold capitalize ${getStatusColor(booking.status)}`}>
+                        {booking.status}
+                      </span>
+                    </div>
+                    {(booking.booking_subtype || booking.room_name) && (
+                      <p className="text-xs text-accent font-semibold mb-1">
+                        {booking.booking_subtype === 'room' && booking.room_name
+                          ? `Room: ${booking.room_name}`
+                          : booking.booking_subtype === 'full_property'
+                          ? 'Entire Property'
+                          : null}
+                      </p>
+                    )}
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-sm text-muted-foreground">
+                      <div className="flex items-center gap-2">
+                        <Calendar className="w-4 h-4" />
+                        <span>
+                          {new Date(booking.checkin).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} -
+                          {' '}
+                          {new Date(booking.checkout).toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <MapPin className="w-4 h-4" />
+                        <span className="capitalize">{booking.item_type}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Price and actions */}
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 w-full sm:w-auto">
+                    <div className="text-right">
+                      <p className="text-sm text-muted-foreground">Total Price</p>
+                      <p className="text-xl font-bold text-accent">{formatPrice(parseFloat(booking.total_price as any) || 0)}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      <Link href={`/dashboard/bookings/${booking.id}`}>
+                        <button className="flex items-center gap-2 px-4 py-2 bg-accent text-accent-foreground rounded-lg hover:bg-accent/90 transition-colors">
+                          <Eye className="w-4 h-4" />
+                          <span className="text-sm font-semibold">Details</span>
+                        </button>
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </main>
       </div>
 
       <Footer />
-    </main>
+    </div>
   )
 }

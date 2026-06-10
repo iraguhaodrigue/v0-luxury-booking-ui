@@ -50,10 +50,14 @@ export default function LoginPage() {
         <div className="w-full max-w-md space-y-8">
           {/* Logo */}
           <div className="text-center">
-            <Link href="/">
-              <h1 className="text-3xl font-serif font-bold text-primary">
-                Luxury<span className="text-accent">Stays</span>
-              </h1>
+            <Link href="/" aria-label="KILUVA Home">
+              <img
+                src="/kiluva-logo.avif"
+                alt="KILUVA"
+                width={140}
+                height={56}
+                className="h-14 w-auto object-contain mx-auto"
+              />
             </Link>
             <p className="mt-4 text-muted-foreground">
               Welcome back. Sign in to your account.

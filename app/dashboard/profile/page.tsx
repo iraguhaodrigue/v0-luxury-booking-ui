@@ -1,24 +1,66 @@
 'use client'
 
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { createClient } from '@/lib/supabase/client'
 import { Navbar } from '@/components/layouts/navbar'
 import { DashboardSidebar } from '@/components/layouts/dashboard-sidebar'
 import { Footer } from '@/components/layouts/footer'
-import { User, Mail, Phone, MapPin, Save } from 'lucide-react'
+import { User, Mail, Phone, MapPin, Save, Loader2 } from 'lucide-react'
+
+interface UserProfile {
+  email: string
+  full_name?: string
+  phone?: string
+  address?: string
+  city?: string
+  country?: string
+  postal_code?: string
+}
 
 export default function ProfilePage() {
-  const [formData, setFormData] = useState({
-    firstName: 'John',
-    lastName: 'Doe',
-    email: 'john.doe@example.com',
-    phone: '+1 (555) 123-4567',
-    address: '123 Luxury Avenue',
-    city: 'New York',
-    country: 'United States',
-    postalCode: '10001',
+  const router = useRouter()
+  const supabase = createClient()
+
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saved, setSaved] = useState(false)
+  const [user, setUser] = useState<any>(null)
+  const [formData, setFormData] = useState<UserProfile>({
+    email: '',
+    full_name: '',
+    phone: '',
+    address: '',
+    city: '',
+    country: '',
+    postal_code: '',
   })
 
-  const [saved, setSaved] = useState(false)
+  useEffect(() => {
+    loadUserData()
+  }, [])
+
+  const loadUserData = async () => {
+    const { data: { user } } = await supabase.auth.getUser()
+
+    if (!user) {
+      router.push('/auth/login')
+      return
+    }
+
+    setUser(user)
+    setFormData({
+      email: user.email || '',
+      full_name: user.user_metadata?.full_name || '',
+      phone: user.user_metadata?.phone || '',
+      address: user.user_metadata?.address || '',
+      city: user.user_metadata?.city || '',
+      country: user.user_metadata?.country || '',
+      postal_code: user.user_metadata?.postal_code || '',
+    })
+
+    setLoading(false)
+  }
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     setFormData({
@@ -27,9 +69,38 @@ export default function ProfilePage() {
     })
   }
 
-  const handleSave = () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+  const handleSave = async () => {
+    setSaving(true)
+
+    const { error } = await supabase.auth.updateUser({
+      data: {
+        full_name: formData.full_name,
+        phone: formData.phone,
+        address: formData.address,
+        city: formData.city,
+        country: formData.country,
+        postal_code: formData.postal_code,
+      },
+    })
+
+    if (!error) {
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    }
+
+    setSaving(false)
+  }
+
+  if (loading) {
+    return (
+      <main className="w-full min-h-screen flex flex-col">
+        <Navbar />
+        <div className="flex flex-1 items-center justify-center">
+          <Loader2 className="w-8 h-8 animate-spin text-accent" />
+        </div>
+        <Footer />
+      </main>
+    )
   }
 
   return (
@@ -85,42 +156,32 @@ export default function ProfilePage() {
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <label className="block text-sm font-semibold text-foreground mb-2">
-                        First Name
+                        Full Name
                       </label>
                       <input
                         type="text"
-                        name="firstName"
-                        value={formData.firstName}
+                        name="full_name"
+                        value={formData.full_name}
                         onChange={handleChange}
                         className="input-luxury w-full"
+                        placeholder="John Doe"
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-semibold text-foreground mb-2">
-                        Last Name
+                      <label className="block text-sm font-semibold text-foreground mb-2 flex items-center space-x-2">
+                        <Mail className="w-4 h-4" />
+                        <span>Email Address</span>
                       </label>
                       <input
-                        type="text"
-                        name="lastName"
-                        value={formData.lastName}
-                        onChange={handleChange}
-                        className="input-luxury w-full"
+                        type="email"
+                        value={formData.email}
+                        disabled
+                        className="input-luxury w-full opacity-60 cursor-not-allowed"
                       />
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Email cannot be changed
+                      </p>
                     </div>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-semibold text-foreground mb-2 flex items-center space-x-2">
-                      <Mail className="w-4 h-4" />
-                      <span>Email Address</span>
-                    </label>
-                    <input
-                      type="email"
-                      name="email"
-                      value={formData.email}
-                      onChange={handleChange}
-                      className="input-luxury w-full"
-                    />
                   </div>
 
                   <div>
@@ -134,6 +195,7 @@ export default function ProfilePage() {
                       value={formData.phone}
                       onChange={handleChange}
                       className="input-luxury w-full"
+                      placeholder="+250 788 800 929"
                     />
                   </div>
                 </div>
@@ -157,6 +219,7 @@ export default function ProfilePage() {
                       value={formData.address}
                       onChange={handleChange}
                       className="input-luxury w-full"
+                      placeholder="123 Main Street"
                     />
                   </div>
 
@@ -171,6 +234,7 @@ export default function ProfilePage() {
                         value={formData.city}
                         onChange={handleChange}
                         className="input-luxury w-full"
+                        placeholder="New York"
                       />
                     </div>
                     <div>
@@ -179,10 +243,11 @@ export default function ProfilePage() {
                       </label>
                       <input
                         type="text"
-                        name="postalCode"
-                        value={formData.postalCode}
+                        name="postal_code"
+                        value={formData.postal_code}
                         onChange={handleChange}
                         className="input-luxury w-full"
+                        placeholder="10001"
                       />
                     </div>
                   </div>
@@ -197,6 +262,7 @@ export default function ProfilePage() {
                       value={formData.country}
                       onChange={handleChange}
                       className="input-luxury w-full"
+                      placeholder="United States"
                     />
                   </div>
                 </div>
@@ -247,14 +313,19 @@ export default function ProfilePage() {
               <div className="flex gap-4 pb-8">
                 <button
                   onClick={handleSave}
+                  disabled={saving}
                   className="btn-luxury-accent flex items-center space-x-2"
                 >
-                  <Save className="w-5 h-5" />
-                  <span>Save Changes</span>
+                  {saving ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Save className="w-5 h-5" />
+                  )}
+                  <span>{saving ? 'Saving...' : 'Save Changes'}</span>
                 </button>
 
                 {saved && (
-                  <div className="bg-accent/10 text-accent px-6 py-3 rounded-lg flex items-center">
+                  <div className="bg-green-100 text-green-800 px-6 py-3 rounded-lg flex items-center">
                     <span className="font-semibold">Changes saved successfully!</span>
                   </div>
                 )}

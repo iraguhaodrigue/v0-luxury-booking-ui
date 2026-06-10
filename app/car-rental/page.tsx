@@ -1,88 +1,47 @@
+import Link from 'next/link'
 import { Navbar } from '@/components/layouts/navbar'
 import { Footer } from '@/components/layouts/footer'
 import { CarCard } from '@/components/cars/car-card'
+import { createClient } from '@/lib/supabase/server'
+import { logger } from '@/lib/utils/logger'
+import { querySelectors } from '@/lib/utils/query-optimizations'
+import { Car, UserCheck, ShieldCheck } from 'lucide-react'
 
-const cars = [
-  {
-    id: 1,
-    name: 'Tesla Model S',
-    model: 'Electric Sedan',
-    price: 250,
-    image: 'https://images.unsplash.com/photo-1568605114967-8130f3a36994?w=600&q=80',
-    seats: 5,
-    transmission: 'Electric',
-    power: '450 HP',
-    available: true,
-    description: 'Luxury electric sedan with autopilot',
-  },
-  {
-    id: 2,
-    name: 'Mercedes-Benz S-Class',
-    model: 'Luxury Sedan',
-    price: 280,
-    image: 'https://images.unsplash.com/photo-1552546661-3c1c8e8b5c3c?w=600&q=80',
-    seats: 5,
-    transmission: 'Automatic',
-    power: '500 HP',
-    available: true,
-    description: 'Premium executive sedan with all amenities',
-  },
-  {
-    id: 3,
-    name: 'BMW 7 Series',
-    model: 'Executive Sedan',
-    price: 270,
-    image: 'https://images.unsplash.com/photo-1527893917519-4b9c1d2fe3d0?w=600&q=80',
-    seats: 5,
-    transmission: 'Automatic',
-    power: '530 HP',
-    available: true,
-    description: 'Advanced luxury technology and comfort',
-  },
-  {
-    id: 4,
-    name: 'Porsche 911',
-    model: 'Sports Car',
-    price: 350,
-    image: 'https://images.unsplash.com/photo-1552546661-3c1c8e8b5c3d?w=600&q=80',
-    seats: 2,
-    transmission: 'Automatic',
-    power: '510 HP',
-    available: true,
-    description: 'Iconic sports car with exhilarating performance',
-  },
-  {
-    id: 5,
-    name: 'Rolls-Royce Ghost',
-    model: 'Ultra-Luxury Sedan',
-    price: 400,
-    image: 'https://images.unsplash.com/photo-1552546661-3c1c8e8b5c3e?w=600&q=80',
-    seats: 5,
-    transmission: 'Automatic',
-    power: '563 HP',
-    available: false,
-    description: 'The ultimate luxury driving experience',
-  },
-  {
-    id: 6,
-    name: 'Range Rover',
-    model: 'Luxury SUV',
-    price: 320,
-    image: 'https://images.unsplash.com/photo-1552546661-3c1c8e8b5c3f?w=600&q=80',
-    seats: 7,
-    transmission: 'Automatic',
-    power: '518 HP',
-    available: true,
-    description: 'Premium SUV with off-road capabilities',
-  },
-]
+async function fetchCars() {
+  try {
+    logger.info('Fetching cars from database')
+    const supabase = await createClient()
+    const { data, error } = await supabase
+      .from('cars')
+      .select(querySelectors.carsListing)
+      .eq('status', 'available')
+      .order('created_at', { ascending: false })
 
-export const metadata = {
-  title: 'Car Rental | Luxury Stays',
-  description: 'Rent luxury vehicles to complement your premium stay',
+    if (error) {
+      logger.error('Error fetching cars from database', error)
+      return []
+    }
+
+    if (!data || data.length === 0) {
+      logger.info('No cars found in database')
+      return []
+    }
+
+    logger.success(`Retrieved ${data.length} cars from database`)
+    return data
+  } catch (error) {
+    logger.error('Exception while fetching cars', error)
+    return []
+  }
 }
 
-export default function CarRentalPage() {
+export const metadata = {
+  title: 'Car Rental | KILUVA',
+  description: 'Rent luxury vehicles to complement your premium Rwanda stay',
+}
+
+export default async function CarRentalPage() {
+  const cars = await fetchCars()
   return (
     <main className="w-full">
       <Navbar />
@@ -124,11 +83,17 @@ export default function CarRentalPage() {
           </div>
 
           {/* Cars Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {cars.map((car) => (
-              <CarCard key={car.id} {...car} />
-            ))}
-          </div>
+          {cars && cars.length > 0 ? (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+              {cars.map((car) => (
+                <CarCard key={car.id} {...car} />
+              ))}
+            </div>
+          ) : (
+            <div className="text-center py-16">
+              <p className="text-lg text-muted-foreground">No cars available at this time. Please check back soon.</p>
+            </div>
+          )}
         </div>
       </section>
 
@@ -139,10 +104,10 @@ export default function CarRentalPage() {
             Why Choose Our Car Rental?
           </h2>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🚗</span>
+                <Car className="w-8 h-8 text-accent" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">
                 Premium Fleet
@@ -154,7 +119,7 @@ export default function CarRentalPage() {
 
             <div className="text-center">
               <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">👔</span>
+                <UserCheck className="w-8 h-8 text-accent" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">
                 Professional Drivers
@@ -166,7 +131,7 @@ export default function CarRentalPage() {
 
             <div className="text-center">
               <div className="w-16 h-16 bg-accent/10 rounded-lg flex items-center justify-center mx-auto mb-4">
-                <span className="text-2xl">🛡️</span>
+                <ShieldCheck className="w-8 h-8 text-accent" />
               </div>
               <h3 className="text-xl font-semibold text-foreground mb-2">
                 Complete Coverage
@@ -189,9 +154,11 @@ export default function CarRentalPage() {
             Combine our luxury accommodations with a premium vehicle to create the
             perfect travel experience
           </p>
-          <button className="btn-luxury-accent">
-            Book a Vehicle
-          </button>
+          <Link href="/car-rental">
+            <button className="btn-luxury-accent">
+              Book a Vehicle
+            </button>
+          </Link>
         </div>
       </section>
 

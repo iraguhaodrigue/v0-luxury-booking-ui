@@ -51,7 +51,7 @@ export function RelatedProperties({
         </div>
 
         <div className="mt-12 text-center">
-          <Link href="/properties">
+          <Link href="/properties" className="inline-block">
             <button className="btn-luxury-accent">
               View All Properties
             </button>

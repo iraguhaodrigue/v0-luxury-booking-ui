@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { createClient } from '@/lib/supabase/client'
 import { uploadImage } from '@/lib/supabase/storage'
 import { AdminSidebar } from '@/components/layouts/admin-sidebar'
+import { MultiImageUpload } from '@/components/admin/multi-image-upload'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
@@ -11,45 +12,34 @@ import { Textarea } from '@/components/ui/textarea'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog'
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
-import { Checkbox } from '@/components/ui/checkbox'
-import { Plus, Pencil, Trash2, ImageIcon, Loader2, Star } from 'lucide-react'
+import { Plus, Pencil, Trash2, Loader2, ImageIcon } from 'lucide-react'
 
 interface Property {
   id: number
+  owner_id: number
   name: string
-  property_type: string
+  property_type: 'villa' | 'apartment'
   location: string
   description: string | null
-  star_rating: number | null
+  city: string | null
+  country: string | null
   total_rooms: number | null
-  amenities: string | null
-  image_url: string | null
+  amenities: string[] | null
+  base_price_per_night: number
+  currency: string
+  images: string[] | null
+  is_active: boolean
+  created_at: string
+  updated_at: string
 }
 
-interface Amenity {
-  id: number
-  name: string
-  description?: string
-}
-
-const PROPERTY_TYPES = ['villa', 'hotel', 'lodge', 'resort', 'apartment']
-const emptyForm = { 
-  name: '', 
-  property_type: 'villa', 
-  location: '', 
-  description: '', 
-  base_price_per_night: '50000',
-  star_rating: '5', 
-  total_rooms: '10', 
-  selected_amenities: [] as number[],
-  image_url: '' 
-}
+const PROPERTY_TYPES = ['villa', 'apartment']
+const emptyForm = { name: '', property_type: 'villa', location: '', description: '', city: '', country: '', total_rooms: '0', amenities: '', base_price_per_night: '', currency: 'USD' }
 
 export default function PropertiesPage() {
   const [items, setItems] = useState<Property[]>([])
-  const [amenities, setAmenities] = useState<Amenity[]>([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [dialogOpen, setDialogOpen] = useState(false)
@@ -57,129 +47,86 @@ export default function PropertiesPage() {
   const [editing, setEditing] = useState<Property | null>(null)
   const [deleting, setDeleting] = useState<Property | null>(null)
   const [form, setForm] = useState(emptyForm)
+  const [images, setImages] = useState<string[]>([])
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const supabase = createClient()
-
-  const fetchAmenities = useCallback(async () => {
-    const { data } = await supabase.from('amenities').select('*').order('name')
-    if (data) setAmenities(data)
-  }, [supabase])
 
   const fetchItems = useCallback(async () => {
+    const supabase = createClient()
     const { data } = await supabase.from('properties').select('*').order('created_at', { ascending: false })
     if (data) setItems(data)
     setLoading(false)
-  }, [supabase])
+  }, [])
 
-  useEffect(() => { 
-    fetchAmenities()
-    fetchItems() 
-  }, [fetchAmenities, fetchItems])
+  useEffect(() => { fetchItems() }, [fetchItems])
 
   const openAdd = () => {
-    setEditing(null)
-    setForm(emptyForm)
-    setImageFile(null)
-    setImagePreview(null)
-    setError('')
-    setDialogOpen(true)
+    setEditing(null); setForm(emptyForm); setImages([]); setImageFile(null); setImagePreview(null); setError(''); setDialogOpen(true)
   }
 
   const openEdit = (item: Property) => {
     setEditing(item)
-    setForm({ name: item.name, property_type: item.property_type, location: item.location, description: item.description || '', base_price_per_night: String(item.base_price_per_night || 50000), star_rating: String(item.star_rating || 5), total_rooms: String(item.total_rooms || 10), selected_amenities: [], image_url: item.image_url || '' })
-    setImageFile(null); setImagePreview(item.image_url || null); setError(''); setDialogOpen(true)
+    setForm({ 
+      name: item.name, 
+      property_type: item.property_type, 
+      location: item.location, 
+      description: item.description || '', 
+      city: item.city || '', 
+      country: item.country || '', 
+      total_rooms: String(item.total_rooms || 0), 
+      amenities: Array.isArray(item.amenities) ? item.amenities.join(', ') : item.amenities || '', 
+      base_price_per_night: String(item.base_price_per_night || 0), 
+      currency: item.currency || 'USD' 
+    })
+    setImages(item.images || [])
+    setImageFile(null); 
+    setImagePreview(item.images && item.images.length > 0 ? item.images[0] : null); 
+    setError(''); 
+    setDialogOpen(true)
   }
 
   const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
-    if (file) { 
-      setImageFile(file)
-      setImagePreview(URL.createObjectURL(file)) 
-    }
+    if (file) { setImageFile(file); setImagePreview(URL.createObjectURL(file)) }
   }
 
-  const toggleAmenity = (id: number) => {
-    setForm(prev => ({
-      ...prev,
-      selected_amenities: prev.selected_amenities.includes(id)
-        ? prev.selected_amenities.filter(a => a !== id)
-        : [...prev.selected_amenities, id]
-    }))
-  }
-
-  const handleSave = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!form.name || !form.location || !form.base_price_per_night) { 
-      setError('Name, location, and base price are required')
-      return 
+  const handleSave = async () => {
+    if (!form.name || !form.location || !form.base_price_per_night) { setError('Name, location, and price are required'); return }
+    if (images.length === 0) { setError('Please upload at least one image'); return }
+    setSaving(true); setError('')
+    const supabase = createClient()
+    const finalImages = [...images]
+    const amenitiesArray = form.amenities ? form.amenities.split(',').map(a => a.trim()).filter(a => a) : []
+    const payload = { 
+      name: form.name, 
+      property_type: form.property_type, 
+      location: form.location, 
+      description: form.description || null, 
+      city: form.city || null,
+      country: form.country || null,
+      total_rooms: parseInt(form.total_rooms) || 0, 
+      amenities: amenitiesArray, 
+      base_price_per_night: parseFloat(form.base_price_per_night),
+      currency: form.currency,
+      images: images,
+      is_active: true
     }
-    
-    setSaving(true)
-    setError('')
-    
-    try {
-      let imageUrl = form.image_url
-      if (imageFile) { 
-        const url = await uploadImage(imageFile, 'properties')
-        if (url) imageUrl = url 
-      }
 
-      const amenitiesArray = form.selected_amenities.length > 0
-        ? amenities.filter(a => form.selected_amenities.includes(a.id)).map(a => a.name)
-        : []
+    const { error: dbError } = editing
+      ? await supabase.from('properties').update(payload).eq('id', editing.id)
+      : await supabase.from('properties').insert(payload)
 
-      const payload = { 
-        name: form.name, 
-        property_type: form.property_type, 
-        location: form.location, 
-        description: form.description || null,
-        base_price_per_night: parseFloat(form.base_price_per_night) || 50000,
-        star_rating: parseInt(form.star_rating) || 5, 
-        total_rooms: parseInt(form.total_rooms) || 0, 
-        amenities: amenitiesArray,
-        image_url: imageUrl || null 
-      }
-
-      const { error: dbError } = editing
-        ? await supabase.from('properties').update(payload).eq('id', editing.id)
-        : await supabase.from('properties').insert([payload])
-
-      if (dbError) { 
-        setError(dbError.message)
-        console.error('DB Error:', dbError)
-        return 
-      }
-
-      setSaving(false)
-      setDialogOpen(false)
-      fetchItems()
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'An error occurred')
-      console.error('Error:', err)
-    } finally {
-      setSaving(false)
-    }
+    if (dbError) { setError(dbError.message); setSaving(false); return }
+    setSaving(false); setDialogOpen(false); fetchItems()
   }
 
   const handleDelete = async () => {
     if (!deleting) return
     setSaving(true)
-    try {
-      const { error: dbError } = await supabase.from('properties').delete().eq('id', deleting.id)
-      if (dbError) {
-        setError(dbError.message)
-        console.error('Delete error:', dbError)
-        return
-      }
-      setDeleteOpen(false)
-      setDeleting(null)
-      fetchItems()
-    } finally {
-      setSaving(false)
-    }
+    const supabase = createClient()
+    await supabase.from('properties').delete().eq('id', deleting.id)
+    setSaving(false); setDeleteOpen(false); setDeleting(null); fetchItems()
   }
 
   return (
@@ -208,7 +155,7 @@ export default function PropertiesPage() {
                     <TableHeader>
                       <TableRow>
                         <TableHead>Image</TableHead><TableHead>Name</TableHead><TableHead>Type</TableHead>
-                        <TableHead>Location</TableHead><TableHead>Rating</TableHead><TableHead>Rooms</TableHead>
+                        <TableHead>Location</TableHead><TableHead>Price/Night</TableHead><TableHead>Rooms</TableHead>
                         <TableHead className="text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
@@ -216,14 +163,17 @@ export default function PropertiesPage() {
                       {items.map(item => (
                         <TableRow key={item.id}>
                           <TableCell>
-                            {item.image_url ? <img src={item.image_url} alt={item.name} className="h-12 w-16 object-cover rounded" />
-                              : <div className="h-12 w-16 bg-muted rounded flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>}
+                            {item.images && item.images.length > 0 && item.images[0] ? (
+                            <img src={item.images[0]} alt={item.name} className="h-12 w-16 object-cover rounded" />
+                            ) : (
+                              <div className="h-12 w-16 bg-muted rounded flex items-center justify-center"><ImageIcon className="h-5 w-5 text-muted-foreground" /></div>
+                            )}
                           </TableCell>
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell><Badge variant="secondary" className="capitalize">{item.property_type}</Badge></TableCell>
                           <TableCell>{item.location}</TableCell>
-                          <TableCell><div className="flex items-center gap-1"><Star className="h-4 w-4 fill-amber-400 text-amber-400" />{item.star_rating}</div></TableCell>
-                          <TableCell>{item.total_rooms}</TableCell>
+                          <TableCell>{new Intl.NumberFormat('en-RW', { style: 'currency', currency: item.currency, maximumFractionDigits: 0 }).format(item.base_price_per_night)}</TableCell>
+                          <TableCell>{item.total_rooms || '-'}</TableCell>
                           <TableCell className="text-right">
                             <div className="flex justify-end gap-2">
                               <Button variant="outline" size="sm" onClick={() => openEdit(item)}><Pencil className="h-4 w-4" /></Button>
@@ -240,132 +190,45 @@ export default function PropertiesPage() {
           </Card>
 
           <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
-              <DialogHeader><DialogTitle>{editing ? 'Edit Property' : 'Add Property'}</DialogTitle></DialogHeader>
-              <form onSubmit={handleSave} className="grid gap-4 py-4">
+            <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader><DialogTitle>{editing ? 'Edit Property' : 'Add Property'}</DialogTitle><DialogDescription>{editing ? 'Update property details below' : 'Create a new property listing'}</DialogDescription></DialogHeader>
+              <div className="grid gap-4 py-4">
                 {error && <p className="text-sm text-destructive bg-destructive/10 p-3 rounded">{error}</p>}
-                
-                <div>
-                  <Label>Property Name *</Label>
-                  <Input 
-                    value={form.name} 
-                    onChange={e => setForm({ ...form, name: e.target.value })} 
-                    placeholder="e.g. Luxury Villa Kigali"
-                    required
-                  />
-                </div>
-
+                <div><Label>Property Name *</Label><Input value={form.name} onChange={e => setForm({ ...form, name: e.target.value })} placeholder="e.g. Luxury Villa Kigali" /></div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>Type *</Label>
-                    <Select value={form.property_type} onValueChange={v => setForm({ ...form, property_type: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {PROPERTY_TYPES.map(t => (
-                          <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div><Label>Type *</Label>
+                    <Select value={form.property_type} onValueChange={v => setForm({ ...form, property_type: v as 'villa' | 'apartment' })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent>{PROPERTY_TYPES.map(t => <SelectItem key={t} value={t} className="capitalize">{t}</SelectItem>)}</SelectContent></Select>
                   </div>
-                  <div>
-                    <Label>Star Rating</Label>
-                    <Select value={form.star_rating} onValueChange={v => setForm({ ...form, star_rating: v })}>
-                      <SelectTrigger><SelectValue /></SelectTrigger>
-                      <SelectContent>
-                        {[1,2,3,4,5].map(n => (
-                          <SelectItem key={n} value={String(n)}>{n} Star{n > 1 ? 's' : ''}</SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                  <div><Label>Currency</Label>
+                    <Select value={form.currency} onValueChange={v => setForm({ ...form, currency: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="USD">USD</SelectItem><SelectItem value="RWF">RWF</SelectItem><SelectItem value="EUR">EUR</SelectItem></SelectContent></Select>
                   </div>
                 </div>
-
-                <div>
-                  <Label>Location *</Label>
-                  <Input 
-                    value={form.location} 
-                    onChange={e => setForm({ ...form, location: e.target.value })} 
-                    placeholder="e.g. Kigali, Rwanda"
-                    required
-                  />
+                <div><Label>Location *</Label><Input value={form.location} onChange={e => setForm({ ...form, location: e.target.value })} placeholder="e.g. Kigali, Rwanda" /></div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div><Label>City</Label><Input value={form.city} onChange={e => setForm({ ...form, city: e.target.value })} placeholder="e.g. Kigali" /></div>
+                  <div><Label>Country</Label><Input value={form.country} onChange={e => setForm({ ...form, country: e.target.value })} placeholder="e.g. Rwanda" /></div>
                 </div>
-
-                <div>
-                  <Label>Base Price Per Night (RWF) *</Label>
-                  <Input 
-                    type="number" 
-                    value={form.base_price_per_night} 
-                    onChange={e => setForm({ ...form, base_price_per_night: e.target.value })} 
-                    placeholder="50000"
-                    required
-                  />
+                <div className="grid grid-cols-2 gap-4">
+                  <div><Label>Base Price per Night *</Label><Input type="number" value={form.base_price_per_night} onChange={e => setForm({ ...form, base_price_per_night: e.target.value })} placeholder="250000" /></div>
+                  <div><Label>Total Rooms</Label><Input type="number" value={form.total_rooms} onChange={e => setForm({ ...form, total_rooms: e.target.value })} /></div>
                 </div>
-
-                <div>
-                  <Label>Total Rooms</Label>
-                  <Input 
-                    type="number" 
-                    value={form.total_rooms} 
-                    onChange={e => setForm({ ...form, total_rooms: e.target.value })} 
-                  />
-                </div>
-
-                <div>
-                  <Label>Description</Label>
-                  <Textarea 
-                    value={form.description} 
-                    onChange={e => setForm({ ...form, description: e.target.value })} 
-                    rows={3} 
-                    placeholder="Describe the property..."
-                  />
-                </div>
-
-                <div>
-                  <Label>Amenities</Label>
-                  <div className="grid grid-cols-2 gap-3 p-3 border rounded-lg bg-muted/20">
-                    {amenities.length === 0 ? (
-                      <p className="col-span-2 text-sm text-muted-foreground">No amenities available. Run the migration SQL first.</p>
-                    ) : (
-                      amenities.map(amenity => (
-                        <div key={amenity.id} className="flex items-center gap-2">
-                          <Checkbox 
-                            id={`amenity-${amenity.id}`}
-                            checked={form.selected_amenities.includes(amenity.id)}
-                            onCheckedChange={() => toggleAmenity(amenity.id)}
-                          />
-                          <Label htmlFor={`amenity-${amenity.id}`} className="cursor-pointer text-sm">{amenity.name}</Label>
-                        </div>
-                      ))
-                    )}
-                  </div>
-                </div>
-
-                <div>
-                  <Label>Image</Label>
-                  <Input 
-                    type="file" 
-                    accept="image/*" 
-                    onChange={handleImageChange}
-                  />
-                  {imagePreview && (
-                    <img src={imagePreview} alt="Preview" className="mt-2 h-32 w-full object-cover rounded border" />
-                  )}
-                </div>
-
-                <DialogFooter>
-                  <Button type="button" variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
-                  <Button type="submit" disabled={saving || !form.name || !form.location}>
-                    {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editing ? 'Update' : 'Create'}
-                  </Button>
-                </DialogFooter>
-              </form>
+                <div><Label>Description</Label><Textarea value={form.description} onChange={e => setForm({ ...form, description: e.target.value })} rows={3} placeholder="Describe the property..." /></div>
+                <div><Label>Amenities</Label><Input value={form.amenities} onChange={e => setForm({ ...form, amenities: e.target.value })} placeholder="Pool, Spa, WiFi, Restaurant..." /></div>
+                <MultiImageUpload onImagesChange={setImages} currentImages={images} maxImages={5} label="Property Images (Main + Additional Photos)" />
+              </div>
+              <DialogFooter>
+                <Button variant="outline" onClick={() => setDialogOpen(false)}>Cancel</Button>
+                <Button onClick={handleSave} disabled={saving || !form.name || !form.location || !form.base_price_per_night}>
+                  {saving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" /> Saving...</> : editing ? 'Update' : 'Create'}
+                </Button>
+              </DialogFooter>
             </DialogContent>
           </Dialog>
 
           <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
             <DialogContent>
-              <DialogHeader><DialogTitle>Delete Property</DialogTitle></DialogHeader>
-              <p className="text-muted-foreground">Are you sure you want to delete <strong>{deleting?.name}</strong>? This cannot be undone.</p>
+              <DialogHeader><DialogTitle>Delete Property</DialogTitle><DialogDescription>This action cannot be undone</DialogDescription></DialogHeader>
+              <p className="text-muted-foreground">Are you sure you want to delete <strong>{deleting?.name}</strong>?</p>
               <DialogFooter>
                 <Button variant="outline" onClick={() => setDeleteOpen(false)}>Cancel</Button>
                 <Button variant="destructive" onClick={handleDelete} disabled={saving}>

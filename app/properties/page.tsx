@@ -3,8 +3,8 @@ import { Footer } from '@/components/layouts/footer'
 import { PropertyGrid } from '@/components/properties/property-grid'
 
 export const metadata = {
-  title: 'Browse Properties | Rwanda Luxury',
-  description: 'Explore our curated collection of luxury villas, hotels, and apartments across Rwanda',
+  title: 'Browse Properties | KILUVA',
+  description: 'Explore our curated collection of luxury villas, apartments, and suites across Rwanda',
 }
 
 export const revalidate = 3600 // Revalidate every hour
